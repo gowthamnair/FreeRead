@@ -1,927 +1,2468 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>Aura Reader — Universal E-Book & Comic Engine</title>
-  
+
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
-  
-  <!-- React 18 & ReactDOM -->
-  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-  
-  <!-- Babel for Client-side JSX Compilation -->
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-  
-  <!-- JSZip for Client-side Archive Extraction (.cbz, .epub, .zip) -->
+
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <!-- JSZip (for CBZ, EPUB, DOCX parsing) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 
-  <!-- Typography: Inter, Merriweather, JetBrains Mono -->
+  <!-- PDF.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+
+  <!-- ePub.js -->
+  <script src="https://cdn.jsdelivr.net/npm/epubjs/dist/epub.min.js"></script>
+
+  <!-- Mammoth.js (for DOCX) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+
+  <!-- Web Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Merriweather:ital,wght@0,300;0,400;0,700;1,300&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Lora:ital,wght@0,400;0,600;1,400&family=Playfair+Display:ital,wght@0,500;0,700;1,400&family=Lexend:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+            serif: ['Lora', 'Playfair Display', 'Georgia', 'serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+            opendyslexic: ['Lexend', 'sans-serif'],
+            display: ['Cinzel', 'Playfair Display', 'serif'],
+          },
+          colors: {
+            ios: {
+              blue: '#007AFF',
+              green: '#34C759',
+              indigo: '#5856D6',
+              orange: '#FF9500',
+              pink: '#FF2D55',
+              purple: '#AF52DE',
+              red: '#FF3B30',
+              teal: '#5AC8FA',
+              yellow: '#FFCC00',
+            }
+          },
+          backdropBlur: {
+            xs: '2px',
+          }
+        }
+      }
+    }
+  </script>
 
   <style>
-    @font-face {
-      font-family: 'OpenDyslexic';
-      src: url('https://cdn.jsdelivr.net/npm/opendyslexic@0.1.1/open-dyslexic-regular.woff') format('woff');
-      font-weight: normal;
-      font-style: normal;
-    }
-    .font-dyslexic { font-family: 'OpenDyslexic', sans-serif; }
-    .font-serif-book { font-family: 'Merriweather', Georgia, serif; }
-    .font-sans-ui { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; }
-    .font-mono-code { font-family: 'JetBrains Mono', monospace; }
-
-    /* Custom iOS Glass Utilities */
-    .glass-panel {
-      background: rgba(255, 255, 255, 0.08);
-      backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
-      border: 1px solid rgba(255, 255, 255, 0.14);
-    }
-    .glass-panel-dark {
-      background: rgba(18, 18, 22, 0.65);
-      backdrop-filter: blur(24px);
-      -webkit-backdrop-filter: blur(24px);
-      border: 1px solid rgba(255, 255, 255, 0.08);
-    }
-    .glass-pill {
-      background: rgba(255, 255, 255, 0.12);
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
-      border: 1px solid rgba(255, 255, 255, 0.18);
+    /* Custom iOS Glassmorphism and Themes */
+    :root {
+      --bg-color: #0d1b2a;
+      --text-color: #e0e1dd;
+      --glass-bg: rgba(13, 27, 42, 0.65);
+      --glass-border: rgba(255, 255, 255, 0.12);
+      --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+      --accent: #5AC8FA;
+      --overlay-warmth: rgba(255, 147, 41, 0);
+      --app-font-family: 'Inter', sans-serif;
+      --reader-font-size: 18px;
+      --reader-line-height: 1.8;
+      --reader-letter-spacing: 0.01em;
+      --reader-margin: 2rem;
+      --reader-align: left;
     }
 
-    /* Custom Thin Scrollbar */
-    ::-webkit-scrollbar { width: 6px; height: 6px; }
-    ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.2); border-radius: 9999px; }
-    ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.35); }
-    
+    /* Color Themes */
+    body.theme-oled {
+      --bg-color: #000000;
+      --text-color: #e5e5e5;
+      --glass-bg: rgba(18, 18, 18, 0.75);
+      --glass-border: rgba(255, 255, 255, 0.15);
+      --accent: #0A84FF;
+    }
+    body.theme-midnight {
+      --bg-color: #0d1b2a;
+      --text-color: #e0e1dd;
+      --glass-bg: rgba(13, 27, 42, 0.7);
+      --glass-border: rgba(255, 255, 255, 0.12);
+      --accent: #5AC8FA;
+    }
+    body.theme-sepia {
+      --bg-color: #fbf0d9;
+      --text-color: #3e3223;
+      --glass-bg: rgba(245, 235, 215, 0.8);
+      --glass-border: rgba(80, 50, 20, 0.12);
+      --accent: #c47634;
+    }
+    body.theme-paper {
+      --bg-color: #ffffff;
+      --text-color: #1a1a1a;
+      --glass-bg: rgba(255, 255, 255, 0.82);
+      --glass-border: rgba(0, 0, 0, 0.1);
+      --accent: #007AFF;
+    }
+    body.theme-mint {
+      --bg-color: #eaf5f0;
+      --text-color: #1a3c2b;
+      --glass-bg: rgba(230, 245, 238, 0.85);
+      --glass-border: rgba(30, 80, 50, 0.12);
+      --accent: #2d8a61;
+    }
+
     body {
-      user-select: none;
-      -webkit-user-select: none;
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      font-family: var(--app-font-family);
+      transition: background-color 0.35s cubic-bezier(0.16, 1, 0.3, 1), color 0.35s ease;
+      overscroll-behavior-y: none;
       -webkit-tap-highlight-color: transparent;
+      user-select: none;
     }
-    .selectable-text {
+
+    /* Glass Effect Class */
+    .glass-panel {
+      background: var(--glass-bg);
+      backdrop-filter: blur(24px) saturate(180%);
+      -webkit-backdrop-filter: blur(24px) saturate(180%);
+      border: 1px solid var(--glass-border);
+      box-shadow: var(--glass-shadow);
+    }
+
+    .glass-card {
+      background: var(--glass-bg);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--glass-border);
+      transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.25s ease, border-color 0.2s ease;
+    }
+
+    .glass-card:hover {
+      transform: translateY(-4px) scale(1.01);
+      border-color: rgba(255, 255, 255, 0.3);
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
+    }
+
+    /* Touch Friendly Smooth Scrolling */
+    .smooth-scroll {
+      scroll-behavior: smooth;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    /* Reader Typography Container */
+    .reader-content {
+      font-size: var(--reader-font-size);
+      line-height: var(--reader-line-height);
+      letter-spacing: var(--reader-letter-spacing);
+      text-align: var(--reader-align);
       user-select: text;
-      -webkit-user-select: text;
+    }
+
+    .reader-content p {
+      margin-bottom: 1.4em;
+    }
+
+    .reader-content h1, .reader-content h2, .reader-content h3 {
+      font-family: 'Playfair Display', serif;
+      font-weight: 700;
+      margin-top: 1.8em;
+      margin-bottom: 0.6em;
+      line-height: 1.25;
+      color: inherit;
+    }
+
+    /* Screen Hardware Simulation Filters */
+    #screen-filter-overlay {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 9999;
+      background-color: var(--overlay-warmth);
+      mix-blend-mode: multiply;
+      transition: background-color 0.2s ease;
+    }
+
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(150, 150, 150, 0.25);
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(150, 150, 150, 0.45);
+    }
+
+    /* Manga / Comic Layout Tweaks */
+    .comic-double-spread {
+      display: flex;
+      flex-direction: row;
+      justify-content: center;
+      align-items: center;
+      width: 100%;
+      height: 100%;
+    }
+    .comic-double-spread.manga-rtl {
+      flex-direction: row-reverse;
+    }
+
+    /* Highlight Styling */
+    ::selection {
+      background: rgba(255, 204, 0, 0.4);
+      color: inherit;
+    }
+
+    .aura-hl-yellow { background-color: rgba(255, 225, 53, 0.45); border-radius: 2px; }
+    .aura-hl-green { background-color: rgba(52, 199, 89, 0.4); border-radius: 2px; }
+    .aura-hl-pink { background-color: rgba(255, 45, 85, 0.4); border-radius: 2px; }
+    .aura-hl-blue { background-color: rgba(0, 122, 255, 0.4); border-radius: 2px; }
+
+    /* Touch gesture indicators */
+    .turn-hint-left, .turn-hint-right {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 25%;
+      z-index: 20;
+      cursor: pointer;
+    }
+    .turn-hint-left { left: 0; }
+    .turn-hint-right { right: 0; }
+    .turn-hint-center {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 25%;
+      width: 50%;
+      z-index: 20;
+      cursor: pointer;
     }
   </style>
 </head>
-<body class="bg-black text-slate-100 font-sans-ui overflow-hidden antialiased">
-  <div id="root"></div>
+<body class="theme-midnight min-h-screen overflow-x-hidden transition-colors duration-300">
 
-  <script type="text/babel">
-    const { useState, useEffect, useRef, useMemo } = React;
+  <!-- Ambient Blue-light & Contrast Display Filter Overlay -->
+  <div id="screen-filter-overlay"></div>
 
-    // ==========================================
-    // 1. LIGHTWEIGHT INDEXEDDB STORAGE ENGINE
-    // ==========================================
-    const DB_NAME = 'AuraReaderDB';
-    const DB_VERSION = 1;
+  <!-- Toast Notification System (No Alert Dialogs) -->
+  <div id="toast-container" class="fixed top-5 left-1/2 -translate-x-1/2 z-[10000] flex flex-col gap-2 pointer-events-none items-center w-full max-w-sm px-4"></div>
 
-    function openDatabase() {
-      return new Promise((resolve, reject) => {
-        const req = indexedDB.open(DB_NAME, DB_VERSION);
-        req.onupgradeneeded = (e) => {
-          const db = e.target.result;
-          if (!db.objectStoreNames.contains('books')) db.createObjectStore('books', { keyPath: 'id' });
-          if (!db.objectStoreNames.contains('folders')) db.createObjectStore('folders', { keyPath: 'id' });
-          if (!db.objectStoreNames.contains('annotations')) db.createObjectStore('annotations', { keyPath: 'id' });
-          if (!db.objectStoreNames.contains('stats')) db.createObjectStore('stats', { keyPath: 'key' });
-        };
-        req.onsuccess = () => resolve(req.result);
-        req.onerror = () => reject(req.error);
-      });
-    }
+  <!-- ======================================================== -->
+  <!-- MAIN APP CONTAINER                                       -->
+  <!-- ======================================================== -->
+  <div id="app" class="relative min-h-screen flex flex-col">
 
-    async function dbGet(storeName, key) {
-      const db = await openDatabase();
-      return new Promise((resolve, reject) => {
-        const tx = db.transaction(storeName, 'readonly');
-        const req = tx.objectStore(storeName).get(key);
-        req.onsuccess = () => resolve(req.result);
-        req.onerror = () => reject(req.error);
-      });
-    }
+    <!-- ======================================================== -->
+    <!-- VIEW 1: LIBRARY DASHBOARD                                 -->
+    <!-- ======================================================== -->
+    <main id="library-view" class="flex-1 flex flex-col max-w-7xl w-full mx-auto p-4 sm:p-6 md:p-8">
+      
+      <!-- Top iOS Header Bar -->
+      <header class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 mb-4 border-b border-white/10">
+        <div>
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-2xl glass-panel flex items-center justify-center text-ios-teal shadow-lg">
+              <i data-lucide="sparkles" class="w-6 h-6"></i>
+            </div>
+            <div>
+              <h1 class="text-2xl sm:text-3xl font-display font-bold tracking-tight">Aura Reader</h1>
+              <p class="text-xs sm:text-sm opacity-60">Universal Local Reader • Zero Monetization • 100% Client-Side</p>
+            </div>
+          </div>
+        </div>
 
-    async function dbGetAll(storeName) {
-      const db = await openDatabase();
-      return new Promise((resolve, reject) => {
-        const tx = db.transaction(storeName, 'readonly');
-        const req = tx.objectStore(storeName).getAll();
-        req.onsuccess = () => resolve(req.result || []);
-        req.onerror = () => reject(req.error);
-      });
-    }
+        <!-- Global Action Controls -->
+        <div class="flex items-center flex-wrap gap-2 sm:gap-3">
+          <!-- Reading Stats Trigger -->
+          <button id="btn-open-stats" class="px-3.5 py-2 rounded-xl glass-panel text-xs sm:text-sm font-medium flex items-center gap-2 hover:bg-white/10 transition active:scale-95">
+            <i data-lucide="bar-chart-2" class="w-4 h-4 text-ios-orange"></i>
+            <span>Stats</span>
+          </button>
 
-    async function dbPut(storeName, item) {
-      const db = await openDatabase();
-      return new Promise((resolve, reject) => {
-        const tx = db.transaction(storeName, 'readwrite');
-        const req = tx.objectStore(storeName).put(item);
-        req.onsuccess = () => resolve();
-        req.onerror = () => reject(req.error);
-      });
-    }
+          <!-- Add Folder / Tag -->
+          <button id="btn-new-folder" class="px-3.5 py-2 rounded-xl glass-panel text-xs sm:text-sm font-medium flex items-center gap-2 hover:bg-white/10 transition active:scale-95">
+            <i data-lucide="folder-plus" class="w-4 h-4 text-ios-purple"></i>
+            <span>Collection</span>
+          </button>
 
-    async function dbDelete(storeName, key) {
-      const db = await openDatabase();
-      return new Promise((resolve, reject) => {
-        const tx = db.transaction(storeName, 'readwrite');
-        const req = tx.objectStore(storeName).delete(key);
-        req.onsuccess = () => resolve();
-        req.onerror = () => reject(req.error);
-      });
-    }
+          <!-- Universal Ingestion Button -->
+          <label for="file-upload" class="cursor-pointer px-4 py-2 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white text-xs sm:text-sm font-semibold flex items-center gap-2 shadow-lg shadow-blue-500/25 active:scale-95 transition">
+            <i data-lucide="file-up" class="w-4 h-4"></i>
+            <span>Import Books</span>
+            <input id="file-upload" type="file" multiple accept=".epub,.cbz,.cbr,.cbt,.cb7,.pdf,.txt,.md,.html,.htm,.fb2,.docx,.rtf" class="hidden">
+          </label>
+        </div>
+      </header>
 
-    // ==========================================
-    // 2. VECTOR ICONS (SELF-CONTAINED SVG)
-    // ==========================================
-    const Icon = ({ name, className = "w-5 h-5" }) => {
-      const icons = {
-        book: <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z M6.5 2a2.5 2.5 0 0 0-2.5 2.5v15a2.5 2.5 0 0 0 2.5 2.5 M4 6h16" />,
-        comic: <path d="M21 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-3 M3 12h18 M12 3v18 M16.5 7.5l-9 9" />,
-        folder: <path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z" />,
-        settings: <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z" />,
-        sliders: <path d="M4 21v-7 M4 10V3 M12 21v-9 M12 8V3 M20 21v-5 M20 12V3 M1 14h6 M9 8h6 M17 16h6" />,
-        bookmark: <path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z" />,
-        bookmarkActive: <path fill="currentColor" d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z" />,
-        chevronLeft: <path d="m15 18-6-6 6-6" />,
-        chevronRight: <path d="m9 18 6-6-6-6" />,
-        plus: <path d="M5 12h14 M12 5v14" />,
-        upload: <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4 M17 8l-5-5-5 5 M12 3v12" />,
-        trash: <path d="M3 6h18 M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6 M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />,
-        toc: <path d="M3 6h18 M3 12h18 M3 18h12" />,
-        stats: <path d="M18 20V10 M12 20V4 M6 20v-6" />,
-        x: <path d="M18 6 6 18 M6 6l12 12" />,
-        highlight: <path d="m9 11-6 6v3h3l6-6 M22 2l-3 3-4-4 3-3a2.83 2.83 0 0 1 4 4z M14 6l4 4" />,
-        eye: <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" />,
-        search: <path d="m21 21-4.35-4.35 M19 11a8 8 0 1 1-16 0 8 8 0 0 1 16 0Z" />
-      };
-      return (
-        <svg className={className} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
-          {icons[name] || null}
-        </svg>
-      );
-    };
+      <!-- Search, Collection Tabs & Format Filters -->
+      <section class="flex flex-col gap-4 mb-6">
+        <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+          
+          <!-- Search input with glass styling -->
+          <div class="relative flex-1 max-w-md">
+            <i data-lucide="search" class="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 opacity-40"></i>
+            <input id="library-search" type="text" placeholder="Search by title, author, or tag..." class="w-full pl-10 pr-4 py-2.5 rounded-xl glass-panel text-sm placeholder:opacity-40 focus:outline-none focus:ring-2 focus:ring-sky-400/50">
+          </div>
 
-    // ==========================================
-    // 3. SAMPLE PRELOADED DATA
-    // ==========================================
-    const SAMPLE_EPUB = {
-      id: 'sample-book-1',
-      title: 'Chronicles of the Glass Horizon',
-      author: 'Aura Collective',
-      type: 'ebook',
-      format: 'EPUB',
-      folderId: 'all',
-      currentPage: 0,
-      totalPages: 3,
-      chapters: [
-        {
-          title: 'Prologue: The Silicate Dawn',
-          content: `In the middle of the twenty-fourth century, memory ceased to be recorded on electromagnetic drives. The magnetic drift had wiped sixty percent of the Great Old Archives. What remained was encapsulated into fused-quartz silicate slabs—crystalline sheets unaffected by radiation, temperature, or the degradation of time.\n\nFrom the high balconies of the Neo-Alexandria Library, the light filtered through millions of prismatically arrayed shards. Every shard held a century of history, poetry, and technical schematics. A reader needed only an optical transceiver to illuminate the refractive grids and stream the data directly into an optic interface.\n\n"Knowledge," the Head Curator whispered, tracing a gloved finger over the cold, frictionless quartz, "must not bend to the entropy of its container."`
-        },
-        {
-          title: 'Chapter I: The Refraction Node',
-          content: `Vea adjusted her retinal overlay. The ambient warmth of the desert wind clashed against the sub-zero cooling radiators of the vault. Below her boots, the geothermal turbines hummed at a stable fifty hertz.\n\nShe inserted the cipher key into the reader bay. The translucent interface immediately shifted from midnight blue to an unblemished amber. The glyphs resolved into coherent sentences:\n\n1. All preserved knowledge is non-destructive by design.\n2. No entity may revoke access to the core repositories.\n3. The observer is the final validator of truth.\n\nShe looked back over the dunes. Somewhere beyond the storm horizon, an empire had fallen simply because it forgot how to read its own foundational code.`
-        },
-        {
-          title: 'Chapter II: The Universal Gateway',
-          content: `The beauty of the glass system was its universal interoperability. A single optical collector could process any encoded standard—from ancient ASCII scrolls to multi-layered holographic codices.\n\n"You don't need a central server," Vea said into her communicator. "You never did. If the client holds the cipher and the silicon holds the bits, the bridge is already built."\n\nSilence answered her from the terminal across the chamber, followed by the soft click of an ancient relay locking into place.`
-        }
-      ]
-    };
+          <!-- Format Quick Filter Pills -->
+          <div class="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0" id="filter-pills">
+            <button data-filter="all" class="format-pill active px-3 py-1.5 rounded-lg text-xs font-medium glass-panel border-sky-400/50 bg-sky-500/20 text-sky-300">All</button>
+            <button data-filter="comic" class="format-pill px-3 py-1.5 rounded-lg text-xs font-medium glass-panel opacity-70 hover:opacity-100">Comics / Manga</button>
+            <button data-filter="epub" class="format-pill px-3 py-1.5 rounded-lg text-xs font-medium glass-panel opacity-70 hover:opacity-100">EPUB</button>
+            <button data-filter="pdf" class="format-pill px-3 py-1.5 rounded-lg text-xs font-medium glass-panel opacity-70 hover:opacity-100">PDF</button>
+            <button data-filter="doc" class="format-pill px-3 py-1.5 rounded-lg text-xs font-medium glass-panel opacity-70 hover:opacity-100">Text / Docs</button>
+          </div>
+        </div>
 
-    const SAMPLE_COMIC = {
-      id: 'sample-comic-1',
-      title: 'NEO-TOKYO: Solar Eclipse Vol. 1',
-      author: 'CyberKinetics Studio',
-      type: 'comic',
-      format: 'CBZ',
-      folderId: 'all',
-      currentPage: 0,
-      totalPages: 4,
-      pages: [
-        {
-          title: 'Cover Page',
-          svgBg: 'linear-gradient(135deg, #09090e 0%, #170b28 50%, #3b0764 100%)',
-          tag: 'ISSUE #01 // CYBERPUNK CHRONICLES',
-          subtitle: 'SOLAR ECLIPSE OVER THE MEGAPOLIS',
-          caption: 'Page 1 — The descent into Sector 07.'
-        },
-        {
-          title: 'Sector 07 Alleyway',
-          svgBg: 'linear-gradient(135deg, #020617 0%, #1e1b4b 50%, #0369a1 100%)',
-          tag: 'PANEL 2 // CONTACT ESTABLISHED',
-          subtitle: 'NEON RAIN & OPTICAL DRIFT',
-          caption: 'Page 2 — The courier navigates the lower level conduits.'
-        },
-        {
-          title: 'The Neural Citadel',
-          svgBg: 'linear-gradient(135deg, #18181b 0%, #450a0a 50%, #991b1b 100%)',
-          tag: 'PANEL 3 // PERIMETER BREACH',
-          subtitle: 'THE DATA ARCHIVE EXPOSED',
-          caption: 'Page 3 — The silicate vault locks disengage under laser pulse.'
-        },
-        {
-          title: 'Ascension',
-          svgBg: 'linear-gradient(135deg, #0f172a 0%, #064e3b 50%, #059669 100%)',
-          tag: 'PANEL 4 // THE HORIZON',
-          subtitle: 'SYSTEM REBOOT COMPLETE',
-          caption: 'Page 4 — Sun breaks through the smog of Neo-Tokyo.'
-        }
-      ]
-    };
+        <!-- Collections & Folders Bar -->
+        <div class="flex items-center gap-2 overflow-x-auto py-1" id="collections-bar">
+          <span class="text-xs uppercase tracking-wider opacity-40 font-semibold mr-1">Collections:</span>
+          <!-- Dynamic collection tags injected here -->
+        </div>
+      </section>
 
-    // ==========================================
-    // 4. CLIENT-SIDE PARSING ENGINE
-    // ==========================================
-    async function parseUploadedFile(file) {
-      const ext = file.name.split('.').pop().toLowerCase();
-      const baseItem = {
-        id: 'book_' + Date.now() + '_' + Math.random().toString(36).substring(2, 8),
-        title: file.name.replace(/\.[^/.]+$/, ""),
-        author: 'Local File',
-        folderId: 'all',
-        currentPage: 0,
-        totalPages: 1
-      };
+      <!-- Drag & Drop Hot Zone -->
+      <div id="drop-zone" class="border-2 border-dashed border-white/20 hover:border-cyan-400/70 rounded-2xl p-6 mb-8 text-center glass-panel transition duration-200 cursor-pointer flex flex-col items-center justify-center gap-2">
+        <div class="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center text-cyan-400">
+          <i data-lucide="cloud-rain" class="w-6 h-6"></i>
+        </div>
+        <div class="text-sm font-medium">Drop E-Books, Manga or Comic files anywhere</div>
+        <div class="text-xs opacity-50">Supported: EPUB, CBZ, CBR, PDF, FB2, TXT, DOCX, MD, HTML. Source files are NEVER modified (strict non-destructive).</div>
+      </div>
 
-      // Plain Text & Markdown
-      if (['txt', 'md', 'rtf', 'html', 'htm'].includes(ext)) {
-        const text = await file.text();
-        const paragraphs = text.split(/\n\s*\n/).filter(p => p.trim().length > 0);
-        const chunkSize = 6;
-        const chapters = [];
-        for (let i = 0; i < paragraphs.length; i += chunkSize) {
-          chapters.push({
-            title: `Section ${Math.floor(i / chunkSize) + 1}`, content: paragraphs.slice(i, i + chunkSize).join('\n\n') }); } return { ...baseItem, type: 'ebook', format: ext.toUpperCase(), totalPages: chapters.length \vert{}\vert{} 1, chapters: chapters.length ? chapters : [{ title: 'Main Document', content: text }] }; }  // Comic Book Archives (.cbz / .zip) if (['cbz', 'zip'].includes(ext)) { try { const zip = await JSZip.loadAsync(file); const imageExtensions = /\.(jpe?g\vert{}png\vert{}webp\vert{}avif\vert{}gif)$/i; const imageFiles = Object.keys(zip.files) .filter(filename => imageExtensions.test(filename) && !filename.startsWith('__MACOSX')) .sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));  if (imageFiles.length > 0) { const pages = []; for (let i = 0; i < imageFiles.length; i++) { const imgBlob = await zip.files[imageFiles[i]].async('blob'); const url = URL.createObjectURL(imgBlob); pages.push({ title: `Page ${i + 1}`,
-                imageUrl: url,
-                caption: imageFiles[i]
-              });
+      <!-- Books Grid Shelf -->
+      <section>
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-lg font-semibold flex items-center gap-2">
+            <i data-lucide="library" class="w-5 h-5 text-ios-blue"></i>
+            <span>Library Shelf</span>
+            <span id="book-count-badge" class="ml-1 text-xs px-2 py-0.5 rounded-full bg-white/10 opacity-75">0 books</span>
+          </h2>
+          <div class="flex items-center gap-2 text-xs opacity-60">
+            <span id="sort-label">Recent</span>
+            <button id="btn-sort-toggle" class="p-1.5 rounded-lg glass-panel hover:bg-white/10">
+              <i data-lucide="arrow-down-up" class="w-3.5 h-3.5"></i>
+            </button>
+          </div>
+        </div>
+
+        <div id="books-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 sm:gap-6">
+          <!-- Injected via JavaScript -->
+        </div>
+
+        <!-- Empty state placeholder -->
+        <div id="empty-library-state" class="hidden flex-col items-center justify-center py-16 text-center">
+          <div class="w-16 h-16 rounded-3xl glass-panel flex items-center justify-center opacity-40 mb-4">
+            <i data-lucide="book-marked" class="w-8 h-8"></i>
+          </div>
+          <h3 class="text-lg font-medium opacity-80">Your Aura Shelf is Waiting</h3>
+          <p class="text-xs opacity-50 max-w-sm mt-1">Import your favorite digital books, graphic novels, or tap the demo generators below.</p>
+          <div class="flex flex-wrap items-center justify-center gap-3 mt-6">
+            <button id="btn-restore-samples" class="px-4 py-2 rounded-xl glass-panel text-xs font-semibold hover:bg-white/10 text-cyan-400 flex items-center gap-2">
+              <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+              <span>Reload Sample Classics</span>
+            </button>
+          </div>
+        </div>
+      </section>
+    </main>
+
+
+    <!-- ======================================================== -->
+    <!-- VIEW 2: ACTIVE READING STAGE                              -->
+    <!-- ======================================================== -->
+    <div id="reader-view" class="hidden fixed inset-0 z-50 flex flex-col overflow-hidden select-none">
+      
+      <!-- Top Floating iOS Glass Control Bar -->
+      <header id="reader-top-bar" class="absolute top-0 inset-x-0 z-40 transition-transform duration-300 transform translate-y-0 px-4 py-3">
+        <div class="max-w-5xl mx-auto flex items-center justify-between glass-panel rounded-2xl px-3 sm:px-4 py-2.5 shadow-2xl">
+          
+          <!-- Back button & Title -->
+          <div class="flex items-center gap-3 truncate max-w-[50%]">
+            <button id="btn-close-reader" class="p-2 rounded-xl hover:bg-white/10 transition active:scale-95 text-sm flex items-center gap-1">
+              <i data-lucide="chevron-left" class="w-5 h-5"></i>
+              <span class="hidden sm:inline text-xs font-semibold">Library</span>
+            </button>
+            <div class="truncate">
+              <h2 id="reader-title" class="text-xs sm:text-sm font-semibold truncate">Title</h2>
+              <p id="reader-author" class="text-[10px] opacity-60 truncate">Author</p>
+            </div>
+          </div>
+
+          <!-- Reader action menu -->
+          <div class="flex items-center gap-1 sm:gap-2">
+            <!-- Table of contents -->
+            <button id="btn-toggle-toc" title="Table of Contents" class="p-2 rounded-xl hover:bg-white/10 transition active:scale-95 text-xs">
+              <i data-lucide="list" class="w-4 h-4"></i>
+            </button>
+
+            <!-- Bookmarks & Highlights -->
+            <button id="btn-toggle-annotations" title="Bookmarks & Notes" class="p-2 rounded-xl hover:bg-white/10 transition active:scale-95 text-xs relative">
+              <i data-lucide="bookmark" class="w-4 h-4"></i>
+              <span id="bookmark-active-dot" class="hidden absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-ios-yellow"></span>
+            </button>
+
+            <!-- Display Filters (Warmth, Brightness, OLED) -->
+            <button id="btn-toggle-filters" title="Display Lighting & Filters" class="p-2 rounded-xl hover:bg-white/10 transition active:scale-95 text-xs text-ios-orange">
+              <i data-lucide="sun-medium" class="w-4 h-4"></i>
+            </button>
+
+            <!-- Comic Mode Menu (Only visible for comics/manga) -->
+            <button id="btn-comic-layout" title="Comic Reading Mode" class="hidden p-2 rounded-xl hover:bg-white/10 transition active:scale-95 text-xs text-ios-teal">
+              <i data-lucide="columns-2" class="w-4 h-4"></i>
+            </button>
+
+            <!-- Typography & Formatting -->
+            <button id="btn-toggle-typography" title="Typography & Themes" class="p-2 rounded-xl hover:bg-white/10 transition active:scale-95 text-xs">
+              <i data-lucide="type" class="w-4 h-4"></i>
+            </button>
+
+            <!-- Fullscreen toggle -->
+            <button id="btn-toggle-fullscreen" title="Fullscreen" class="hidden sm:flex p-2 rounded-xl hover:bg-white/10 transition active:scale-95 text-xs">
+              <i data-lucide="maximize" class="w-4 h-4"></i>
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <!-- Main Stage Viewport (Switches based on format) -->
+      <div id="reader-viewport" class="relative flex-1 w-full h-full overflow-hidden flex items-center justify-center">
+
+        <!-- Invisible tap areas for mobile/desktop page flipping -->
+        <div id="turn-zone-left" class="turn-hint-left"></div>
+        <div id="turn-zone-center" class="turn-hint-center"></div>
+        <div id="turn-zone-right" class="turn-hint-right"></div>
+
+        <!-- 1. Reflowable E-Book Container (EPUB, TXT, MD, FB2, DOCX, HTML) -->
+        <div id="text-engine-container" class="hidden w-full h-full overflow-y-auto smooth-scroll px-4 sm:px-8 py-20 flex justify-center">
+          <article id="text-content-target" class="reader-content max-w-3xl w-full mx-auto outline-none transition-all duration-200">
+            <!-- Rendered text stream -->
+          </article>
+        </div>
+
+        <!-- 2. Fixed-Layout EPUB Renderer Hook -->
+        <div id="epub-render-area" class="hidden w-full h-full"></div>
+
+        <!-- 3. Comic & Manga Image Grid Engine (CBZ, CBR, CB7, Images) -->
+        <div id="comic-engine-container" class="hidden w-full h-full flex items-center justify-center overflow-auto smooth-scroll relative select-none">
+          <div id="comic-pages-wrapper" class="w-full h-full flex items-center justify-center">
+            <!-- Dynamic comic image(s) injected here -->
+          </div>
+        </div>
+
+        <!-- 4. PDF Canvas Viewport -->
+        <div id="pdf-engine-container" class="hidden w-full h-full overflow-auto smooth-scroll flex flex-col items-center py-16 px-2">
+          <canvas id="pdf-canvas" class="shadow-2xl rounded-sm max-w-full"></canvas>
+        </div>
+
+        <!-- Floating Text Selection Popover for Highlighting -->
+        <div id="selection-popover" class="hidden fixed z-50 glass-panel rounded-full px-3 py-1.5 shadow-2xl flex items-center gap-2 -translate-x-1/2 -translate-y-full transition duration-150">
+          <button data-color="yellow" class="w-5 h-5 rounded-full bg-yellow-400 hover:scale-110 transition"></button>
+          <button data-color="green" class="w-5 h-5 rounded-full bg-emerald-400 hover:scale-110 transition"></button>
+          <button data-color="pink" class="w-5 h-5 rounded-full bg-pink-500 hover:scale-110 transition"></button>
+          <button data-color="blue" class="w-5 h-5 rounded-full bg-sky-400 hover:scale-110 transition"></button>
+          <div class="w-px h-4 bg-white/20 mx-1"></div>
+          <button id="btn-add-note-inline" class="text-xs px-2 py-0.5 rounded-lg bg-white/10 hover:bg-white/20 transition flex items-center gap-1">
+            <i data-lucide="edit-3" class="w-3 h-3"></i>
+            <span>Note</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Bottom Floating iOS Scrub & Navigation Bar -->
+      <footer id="reader-bottom-bar" class="absolute bottom-0 inset-x-0 z-40 transition-transform duration-300 transform translate-y-0 px-4 py-3">
+        <div class="max-w-3xl mx-auto glass-panel rounded-2xl px-4 py-3 shadow-2xl flex flex-col gap-2">
+          
+          <!-- Scrub Range Slider -->
+          <div class="flex items-center gap-3">
+            <span id="page-num-current" class="text-xs font-mono opacity-70 min-w-[28px] text-right">1</span>
+            <input id="reader-scrubber" type="range" min="1" max="100" value="1" class="w-full h-1.5 bg-white/20 rounded-lg appearance-none cursor-pointer accent-sky-400">
+            <span id="page-num-total" class="text-xs font-mono opacity-70 min-w-[28px]">100</span>
+          </div>
+
+          <!-- Bottom Meta & Quick Flip Tools -->
+          <div class="flex items-center justify-between text-xs opacity-75">
+            <div class="flex items-center gap-3">
+              <button id="btn-prev-page" class="p-1 hover:bg-white/10 rounded-lg flex items-center gap-1">
+                <i data-lucide="arrow-left" class="w-3.5 h-3.5"></i>
+                <span class="hidden sm:inline text-[11px]">Prev</span>
+              </button>
+              <button id="btn-next-page" class="p-1 hover:bg-white/10 rounded-lg flex items-center gap-1">
+                <span class="hidden sm:inline text-[11px]">Next</span>
+                <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
+              </button>
+            </div>
+
+            <div class="flex items-center gap-3 text-[11px] font-medium">
+              <span id="reading-percent-label">0% completed</span>
+              <span class="hidden sm:inline opacity-40">•</span>
+              <span id="reading-time-left" class="hidden sm:inline">~20m left</span>
+            </div>
+
+            <div class="flex items-center gap-2">
+              <button id="btn-quick-bookmark" class="p-1.5 hover:bg-white/10 rounded-lg text-ios-yellow" title="Bookmark page">
+                <i data-lucide="bookmark-plus" class="w-4 h-4"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+      </footer>
+    </div>
+
+
+    <!-- ======================================================== -->
+    <!-- SLIDE-OVER DRAWER: TABLE OF CONTENTS                      -->
+    <!-- ======================================================== -->
+    <div id="drawer-toc" class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm transition-opacity">
+      <div class="absolute top-0 right-0 bottom-0 w-full max-w-md glass-panel p-6 shadow-2xl flex flex-col border-l border-white/15">
+        <div class="flex items-center justify-between pb-4 border-b border-white/10">
+          <div class="flex items-center gap-2">
+            <i data-lucide="list-ordered" class="w-5 h-5 text-sky-400"></i>
+            <h3 class="font-semibold text-base">Table of Contents</h3>
+          </div>
+          <button id="btn-close-toc" class="p-1.5 rounded-lg hover:bg-white/10">
+            <i data-lucide="x" class="w-5 h-5"></i>
+          </button>
+        </div>
+        <div id="toc-list-items" class="flex-1 overflow-y-auto py-4 space-y-1">
+          <!-- Chapters injected here -->
+        </div>
+      </div>
+    </div>
+
+
+    <!-- ======================================================== -->
+    <!-- SLIDE-OVER DRAWER: BOOKMARKS & ANNOTATIONS                -->
+    <!-- ======================================================== -->
+    <div id="drawer-annotations" class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm">
+      <div class="absolute top-0 right-0 bottom-0 w-full max-w-md glass-panel p-6 shadow-2xl flex flex-col border-l border-white/15">
+        <div class="flex items-center justify-between pb-4 border-b border-white/10">
+          <div class="flex items-center gap-2">
+            <i data-lucide="highlighter" class="w-5 h-5 text-ios-yellow"></i>
+            <h3 class="font-semibold text-base">Highlights & Notes</h3>
+          </div>
+          <div class="flex items-center gap-1">
+            <button id="btn-export-notes" title="Export as Markdown" class="p-1.5 rounded-lg hover:bg-white/10 text-xs flex items-center gap-1 text-cyan-400">
+              <i data-lucide="download" class="w-4 h-4"></i>
+              <span>Export</span>
+            </button>
+            <button id="btn-close-annotations" class="p-1.5 rounded-lg hover:bg-white/10 ml-2">
+              <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2 my-3">
+          <button id="tab-btn-bookmarks" class="flex-1 py-1.5 rounded-lg text-xs font-semibold glass-panel bg-white/15">Bookmarks</button>
+          <button id="tab-btn-highlights" class="flex-1 py-1.5 rounded-lg text-xs font-semibold glass-panel opacity-60">Highlights</button>
+        </div>
+
+        <div id="annotations-list-items" class="flex-1 overflow-y-auto space-y-2 py-2">
+          <!-- Injected items -->
+        </div>
+      </div>
+    </div>
+
+
+    <!-- ======================================================== -->
+    <!-- SLIDE-OVER DRAWER: TYPOGRAPHY & LAYOUT CONTROLS          -->
+    <!-- ======================================================== -->
+    <div id="drawer-typography" class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm">
+      <div class="absolute top-0 right-0 bottom-0 w-full max-w-sm glass-panel p-6 shadow-2xl flex flex-col border-l border-white/15 overflow-y-auto">
+        <div class="flex items-center justify-between pb-4 border-b border-white/10">
+          <div class="flex items-center gap-2">
+            <i data-lucide="sliders" class="w-5 h-5 text-ios-indigo"></i>
+            <h3 class="font-semibold text-base">Appearance & Engine</h3>
+          </div>
+          <button id="btn-close-typography" class="p-1.5 rounded-lg hover:bg-white/10">
+            <i data-lucide="x" class="w-5 h-5"></i>
+          </button>
+        </div>
+
+        <div class="py-4 space-y-6 text-xs sm:text-sm">
+          
+          <!-- Themes (OLED, Sepia, Paper, Mint, Midnight) -->
+          <div>
+            <label class="block font-medium mb-2.5 opacity-70">Color Mode (OLED / Reading)</label>
+            <div class="grid grid-cols-5 gap-2">
+              <button data-theme="theme-oled" title="True Black OLED" class="theme-selector-btn h-10 rounded-xl bg-black border border-white/30 flex items-center justify-center text-white"></button>
+              <button data-theme="theme-midnight" title="Midnight Navy" class="theme-selector-btn h-10 rounded-xl bg-[#0d1b2a] border border-white/20 flex items-center justify-center text-sky-200"></button>
+              <button data-theme="theme-sepia" title="Warm Sepia" class="theme-selector-btn h-10 rounded-xl bg-[#fbf0d9] border border-amber-900/30 flex items-center justify-center text-amber-950"></button>
+              <button data-theme="theme-paper" title="Paper White" class="theme-selector-btn h-10 rounded-xl bg-white border border-gray-300 flex items-center justify-center text-gray-900"></button>
+              <button data-theme="theme-mint" title="Soft Mint" class="theme-selector-btn h-10 rounded-xl bg-[#eaf5f0] border border-emerald-900/30 flex items-center justify-center text-emerald-950"></button>
+            </div>
+          </div>
+
+          <!-- Font Family -->
+          <div>
+            <label class="block font-medium mb-2.5 opacity-70">Font Family</label>
+            <div class="grid grid-cols-2 gap-2">
+              <button data-font="sans" class="font-btn active px-3 py-2 rounded-xl glass-panel text-left font-sans">System Sans</button>
+              <button data-font="serif" class="font-btn px-3 py-2 rounded-xl glass-panel text-left font-serif">Classic Serif</button>
+              <button data-font="mono" class="font-btn px-3 py-2 rounded-xl glass-panel text-left font-mono">Monospace</button>
+              <button data-font="opendyslexic" class="font-btn px-3 py-2 rounded-xl glass-panel text-left font-opendyslexic">OpenDyslexic</button>
+            </div>
+          </div>
+
+          <!-- Font Size Slider -->
+          <div>
+            <div class="flex items-center justify-between mb-1.5 opacity-70">
+              <label class="font-medium">Font Size</label>
+              <span id="font-size-val" class="font-mono text-xs">18px</span>
+            </div>
+            <input id="slider-font-size" type="range" min="12" max="36" step="1" value="18" class="w-full accent-blue-500">
+          </div>
+
+          <!-- Line Height & Letter Spacing -->
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block font-medium mb-1.5 opacity-70">Line Height</label>
+              <input id="slider-line-height" type="range" min="1.2" max="2.4" step="0.1" value="1.8" class="w-full accent-blue-500">
+            </div>
+            <div>
+              <label class="block font-medium mb-1.5 opacity-70">Margins</label>
+              <div class="flex rounded-lg glass-panel p-0.5">
+                <button data-margin="compact" class="margin-btn flex-1 py-1 text-center rounded text-[11px]">Thin</button>
+                <button data-margin="normal" class="margin-btn active flex-1 py-1 text-center rounded text-[11px] bg-white/20">Mid</button>
+                <button data-margin="wide" class="margin-btn flex-1 py-1 text-center rounded text-[11px]">Wide</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Text Alignment -->
+          <div>
+            <label class="block font-medium mb-2 opacity-70">Text Alignment</label>
+            <div class="flex rounded-xl glass-panel p-1 gap-1">
+              <button data-align="left" class="align-btn active flex-1 py-1.5 rounded-lg flex items-center justify-center bg-white/20">
+                <i data-lucide="align-left" class="w-4 h-4"></i>
+              </button>
+              <button data-align="justify" class="align-btn flex-1 py-1.5 rounded-lg flex items-center justify-center">
+                <i data-lucide="align-justify" class="w-4 h-4"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- E-Book Reading Flow Mode -->
+          <div>
+            <label class="block font-medium mb-2 opacity-70">Reading Flow (E-Books)</label>
+            <div class="flex rounded-xl glass-panel p-1 gap-1">
+              <button id="btn-flow-paginated" class="flow-btn active flex-1 py-2 rounded-lg text-xs font-semibold bg-white/20 flex items-center justify-center gap-1.5">
+                <i data-lucide="book-open" class="w-3.5 h-3.5"></i>
+                <span>Paginated</span>
+              </button>
+              <button id="btn-flow-scroll" class="flow-btn flex-1 py-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5">
+                <i data-lucide="arrow-down" class="w-3.5 h-3.5"></i>
+                <span>Continuous</span>
+              </button>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+
+    <!-- ======================================================== -->
+    <!-- SLIDE-OVER DRAWER: COMIC & MANGA ENGINE SETTINGS          -->
+    <!-- ======================================================== -->
+    <div id="drawer-comic-layout" class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm">
+      <div class="absolute top-0 right-0 bottom-0 w-full max-w-sm glass-panel p-6 shadow-2xl flex flex-col border-l border-white/15">
+        <div class="flex items-center justify-between pb-4 border-b border-white/10">
+          <div class="flex items-center gap-2">
+            <i data-lucide="panel-left-close" class="w-5 h-5 text-ios-teal"></i>
+            <h3 class="font-semibold text-base">Comic / Manga Mode</h3>
+          </div>
+          <button id="btn-close-comic-layout" class="p-1.5 rounded-lg hover:bg-white/10">
+            <i data-lucide="x" class="w-5 h-5"></i>
+          </button>
+        </div>
+
+        <div class="py-4 space-y-6 text-sm">
+          <!-- Page Spread Modes -->
+          <div>
+            <label class="block font-medium mb-2 opacity-70">Page Presentation</label>
+            <div class="grid grid-cols-2 gap-2">
+              <button data-comic-mode="single" class="comic-mode-btn active p-3 rounded-xl glass-panel text-left flex flex-col gap-1 border-sky-400/60 bg-sky-500/10">
+                <span class="font-semibold text-xs">Single Page</span>
+                <span class="text-[10px] opacity-60">Standard mobile view</span>
+              </button>
+              <button data-comic-mode="double" class="comic-mode-btn p-3 rounded-xl glass-panel text-left flex flex-col gap-1">
+                <span class="font-semibold text-xs">Double Spread</span>
+                <span class="text-[10px] opacity-60">Dual pages for foldables & tablets</span>
+              </button>
+              <button data-comic-mode="webtoon" class="comic-mode-btn p-3 rounded-xl glass-panel text-left flex flex-col gap-1">
+                <span class="font-semibold text-xs">Webtoon</span>
+                <span class="text-[10px] opacity-60">Seamless vertical strip scroll</span>
+              </button>
+              <button data-comic-mode="manga-rtl" class="comic-mode-btn p-3 rounded-xl glass-panel text-left flex flex-col gap-1">
+                <span class="font-semibold text-xs">Manga RTL</span>
+                <span class="text-[10px] opacity-60">Right-to-Left authentic flip</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Fit Sizing -->
+          <div>
+            <label class="block font-medium mb-2 opacity-70">Page Fit Strategy</label>
+            <div class="flex rounded-xl glass-panel p-1 gap-1">
+              <button data-fit="height" class="comic-fit-btn active flex-1 py-2 rounded-lg text-xs font-medium bg-white/20">Fit Height</button>
+              <button data-fit="width" class="comic-fit-btn flex-1 py-2 rounded-lg text-xs font-medium">Fit Width</button>
+              <button data-fit="original" class="comic-fit-btn flex-1 py-2 rounded-lg text-xs font-medium">Original</button>
+            </div>
+          </div>
+
+          <div class="p-3.5 rounded-xl glass-panel text-xs opacity-75 border-sky-400/20">
+            <span class="font-semibold text-sky-400">Pro-Tip for Manga:</span> When <em>Manga RTL</em> is active, tapping or pressing the left arrow advances forward to respect traditional Japanese comic sequencing.
+          </div>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- ======================================================== -->
+    <!-- MODAL: DISPLAY LIGHTING & HARDWARE FILTERS               -->
+    <!-- ======================================================== -->
+    <div id="modal-filters" class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+      <div class="glass-panel w-full max-w-sm rounded-3xl p-6 shadow-2xl border border-white/20">
+        <div class="flex items-center justify-between pb-4 border-b border-white/10">
+          <div class="flex items-center gap-2">
+            <i data-lucide="sun" class="w-5 h-5 text-ios-orange"></i>
+            <h3 class="font-semibold text-base">Lighting & Eye Care</h3>
+          </div>
+          <button id="btn-close-filters" class="p-1.5 rounded-lg hover:bg-white/10">
+            <i data-lucide="x" class="w-5 h-5"></i>
+          </button>
+        </div>
+
+        <div class="py-4 space-y-5 text-xs sm:text-sm">
+          <!-- Warmth / Blue light slider -->
+          <div>
+            <div class="flex items-center justify-between mb-1 opacity-80">
+              <span class="flex items-center gap-1.5">
+                <i data-lucide="flame" class="w-4 h-4 text-amber-500"></i>
+                <span>Blue-Light Warmth</span>
+              </span>
+              <span id="warmth-val" class="font-mono text-xs">0%</span>
+            </div>
+            <input id="slider-warmth" type="range" min="0" max="60" value="0" class="w-full accent-amber-500">
+          </div>
+
+          <!-- Brightness Attenuation -->
+          <div>
+            <div class="flex items-center justify-between mb-1 opacity-80">
+              <span class="flex items-center gap-1.5">
+                <i data-lucide="brightness" class="w-4 h-4 text-yellow-400"></i>
+                <span>App Brightness</span>
+              </span>
+              <span id="brightness-val" class="font-mono text-xs">100%</span>
+            </div>
+            <input id="slider-brightness" type="range" min="30" max="130" value="100" class="w-full accent-yellow-400">
+          </div>
+
+          <!-- Contrast Slider -->
+          <div>
+            <div class="flex items-center justify-between mb-1 opacity-80">
+              <span class="flex items-center gap-1.5">
+                <i data-lucide="contrast" class="w-4 h-4 text-purple-400"></i>
+                <span>Page Contrast</span>
+              </span>
+              <span id="contrast-val" class="font-mono text-xs">100%</span>
+            </div>
+            <input id="slider-contrast" type="range" min="70" max="150" value="100" class="w-full accent-purple-400">
+          </div>
+
+          <!-- Invert Night Colors Toggle -->
+          <div class="flex items-center justify-between pt-2 border-t border-white/10">
+            <div>
+              <div class="font-medium">Inverted Night Mode</div>
+              <div class="text-[11px] opacity-50">Inverts high-contrast scanned pages</div>
+            </div>
+            <label class="relative inline-flex items-center cursor-pointer">
+              <input id="toggle-invert-colors" type="checkbox" class="sr-only peer">
+              <div class="w-11 h-6 bg-white/20 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-ios-green"></div>
+            </label>
+          </div>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- ======================================================== -->
+    <!-- MODAL: READING STATS DASHBOARD                           -->
+    <!-- ======================================================== -->
+    <div id="modal-stats" class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+      <div class="glass-panel w-full max-w-md rounded-3xl p-6 shadow-2xl border border-white/20">
+        <div class="flex items-center justify-between pb-4 border-b border-white/10">
+          <div class="flex items-center gap-2">
+            <i data-lucide="activity" class="w-5 h-5 text-ios-orange"></i>
+            <h3 class="font-semibold text-base">Reading Insights</h3>
+          </div>
+          <button id="btn-close-stats" class="p-1.5 rounded-lg hover:bg-white/10">
+            <i data-lucide="x" class="w-5 h-5"></i>
+          </button>
+        </div>
+
+        <div class="py-5 space-y-4">
+          <div class="grid grid-cols-2 gap-3 text-center">
+            <div class="glass-panel p-4 rounded-2xl">
+              <div class="text-2xl font-bold font-mono text-cyan-400" id="stat-books-count">0</div>
+              <div class="text-[11px] opacity-60 uppercase tracking-wider mt-1">Books in Library</div>
+            </div>
+            <div class="glass-panel p-4 rounded-2xl">
+              <div class="text-2xl font-bold font-mono text-ios-orange" id="stat-total-pages">0</div>
+              <div class="text-[11px] opacity-60 uppercase tracking-wider mt-1">Pages Read</div>
+            </div>
+            <div class="glass-panel p-4 rounded-2xl">
+              <div class="text-2xl font-bold font-mono text-emerald-400" id="stat-reading-time">0m</div>
+              <div class="text-[11px] opacity-60 uppercase tracking-wider mt-1">Time Spent</div>
+            </div>
+            <div class="glass-panel p-4 rounded-2xl">
+              <div class="text-2xl font-bold font-mono text-ios-purple" id="stat-avg-speed">240</div>
+              <div class="text-[11px] opacity-60 uppercase tracking-wider mt-1">Words / Min</div>
+            </div>
+          </div>
+
+          <div class="p-3.5 rounded-2xl glass-panel text-xs space-y-1">
+            <div class="font-semibold opacity-90">Universal Offline Guarantee</div>
+            <div class="opacity-60 text-[11px] leading-relaxed">
+              All stats, reading positions, bookmarks, notes, and parsed volumes remain strictly on your local browser's IndexedDB storage. Aura never transmits telemetry or reading logs.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- ======================================================== -->
+    <!-- MODAL: CREATE COLLECTION / FOLDER                        -->
+    <!-- ======================================================== -->
+    <div id="modal-folder" class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+      <div class="glass-panel w-full max-w-sm rounded-3xl p-6 shadow-2xl border border-white/20">
+        <h3 class="font-semibold text-base mb-3 flex items-center gap-2">
+          <i data-lucide="folder-plus" class="w-5 h-5 text-ios-purple"></i>
+          <span>New Collection</span>
+        </h3>
+        <p class="text-xs opacity-60 mb-4">Create a folder to group your manga series, graphic novels, or academic books.</p>
+        
+        <input id="input-folder-name" type="text" placeholder="e.g. Cyberpunk Classics, Sci-Fi 2026" class="w-full px-3.5 py-2.5 rounded-xl glass-panel text-sm mb-4 focus:outline-none focus:ring-2 focus:ring-purple-400/50">
+
+        <div class="flex items-center justify-end gap-2">
+          <button id="btn-cancel-folder" class="px-4 py-2 rounded-xl text-xs font-semibold hover:bg-white/10">Cancel</button>
+          <button id="btn-save-folder" class="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold shadow-lg">Create</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ======================================================== -->
+  <!-- JAVASCRIPT: APPLICATION LOGIC & COMPREHENSIVE ENGINES   -->
+  <!-- ======================================================== -->
+  <script>
+    /**
+     * Aura Reader - Universal Offline Client-Side Architecture
+     */
+    
+    // Set PDF.js worker URL
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+    /* --- 1. INDEXEDDB PERSISTENCE LAYER --- */
+    class AuraDatabase {
+      constructor() {
+        this.dbName = 'AuraReaderDB_v1';
+        this.version = 1;
+        this.db = null;
+      }
+
+      async open() {
+        return new Promise((resolve, reject) => {
+          const request = indexedDB.open(this.dbName, this.version);
+          request.onupgradeneeded = (e) => {
+            const db = e.target.result;
+            if (!db.objectStoreNames.contains('books')) {
+              const bookStore = db.createObjectStore('books', { keyPath: 'id' });
+              bookStore.createIndex('format', 'format', { unique: false });
+              bookStore.createIndex('collection', 'collection', { unique: false });
+              bookStore.createIndex('updatedAt', 'updatedAt', { unique: false });
             }
-            return {
-              ...baseItem,
-              type: 'comic',
-              format: ext.toUpperCase(),
-              totalPages: pages.length,
-              pages
-            };
+            if (!db.objectStoreNames.contains('annotations')) {
+              const annotStore = db.createObjectStore('annotations', { keyPath: 'id' });
+              annotStore.createIndex('bookId', 'bookId', { unique: false });
+            }
+            if (!db.objectStoreNames.contains('settings')) {
+              db.createObjectStore('settings', { keyPath: 'key' });
+            }
+          };
+          request.onsuccess = (e) => {
+            this.db = e.target.result;
+            resolve(this.db);
+          };
+          request.onerror = (e) => reject(e.target.error);
+        });
+      }
+
+      async getAllBooks() {
+        return new Promise((resolve, reject) => {
+          const tx = this.db.transaction('books', 'readonly');
+          const store = tx.objectStore('books');
+          const req = store.getAll();
+          req.onsuccess = () => resolve(req.result || []);
+          req.onerror = () => reject(req.error);
+        });
+      }
+
+      async getBook(id) {
+        return new Promise((resolve, reject) => {
+          const tx = this.db.transaction('books', 'readonly');
+          const store = tx.objectStore('books');
+          const req = store.get(id);
+          req.onsuccess = () => resolve(req.result);
+          req.onerror = () => reject(req.error);
+        });
+      }
+
+      async saveBook(book) {
+        return new Promise((resolve, reject) => {
+          const tx = this.db.transaction('books', 'readwrite');
+          const store = tx.objectStore('books');
+          const req = store.put(book);
+          req.onsuccess = () => resolve(req.result);
+          req.onerror = () => reject(req.error);
+        });
+      }
+
+      async deleteBook(id) {
+        return new Promise((resolve, reject) => {
+          const tx = this.db.transaction('books', 'readwrite');
+          const store = tx.objectStore('books');
+          const req = store.delete(id);
+          req.onsuccess = () => resolve();
+          req.onerror = () => reject(req.error);
+        });
+      }
+
+      async getAnnotations(bookId) {
+        return new Promise((resolve, reject) => {
+          const tx = this.db.transaction('annotations', 'readonly');
+          const store = tx.objectStore('annotations');
+          const index = store.index('bookId');
+          const req = index.getAll(bookId);
+          req.onsuccess = () => resolve(req.result || []);
+          req.onerror = () => reject(req.error);
+        });
+      }
+
+      async saveAnnotation(annotation) {
+        return new Promise((resolve, reject) => {
+          const tx = this.db.transaction('annotations', 'readwrite');
+          const store = tx.objectStore('annotations');
+          const req = store.put(annotation);
+          req.onsuccess = () => resolve(req.result);
+          req.onerror = () => reject(req.error);
+        });
+      }
+
+      async deleteAnnotation(id) {
+        return new Promise((resolve, reject) => {
+          const tx = this.db.transaction('annotations', 'readwrite');
+          const store = tx.objectStore('annotations');
+          const req = store.delete(id);
+          req.onsuccess = () => resolve();
+          req.onerror = () => reject(req.error);
+        });
+      }
+
+      async getSetting(key, defaultValue = null) {
+        return new Promise((resolve) => {
+          if (!this.db) return resolve(defaultValue);
+          const tx = this.db.transaction('settings', 'readonly');
+          const store = tx.objectStore('settings');
+          const req = store.get(key);
+          req.onsuccess = () => resolve(req.result ? req.result.value : defaultValue);
+          req.onerror = () => resolve(defaultValue);
+        });
+      }
+
+      async saveSetting(key, value) {
+        return new Promise((resolve, reject) => {
+          const tx = this.db.transaction('settings', 'readwrite');
+          const store = tx.objectStore('settings');
+          const req = store.put({ key, value });
+          req.onsuccess = () => resolve();
+          req.onerror = () => reject(req.error);
+        });
+      }
+    }
+
+    const auraDB = new AuraDatabase();
+
+    /* --- 2. SAMPLE CONTENT GENERATOR (Instant out-of-the-box experience) --- */
+    class SampleLibraryGenerator {
+      // Helper to generate a comic page on an HTML5 canvas and return as dataURL/Blob
+      static generateComicPanelBlob(pageNumber, title, subtitle) {
+        return new Promise((resolve) => {
+          const canvas = document.createElement('canvas');
+          canvas.width = 1000;
+          canvas.height = 1500;
+          const ctx = canvas.getContext('2d');
+
+          // Gradient futuristic background
+          const bgGrad = ctx.createLinearGradient(0, 0, 1000, 1500);
+          if (pageNumber === 1) {
+            bgGrad.addColorStop(0, '#0a0a14');
+            bgGrad.addColorStop(1, '#1a0b2e');
+          } else if (pageNumber === 2) {
+            bgGrad.addColorStop(0, '#101d28');
+            bgGrad.addColorStop(1, '#082f49');
+          } else if (pageNumber === 3) {
+            bgGrad.addColorStop(0, '#2e1065');
+            bgGrad.addColorStop(1, '#09090b');
+          } else {
+            bgGrad.addColorStop(0, '#030712');
+            bgGrad.addColorStop(1, '#111827');
           }
+          ctx.fillStyle = bgGrad;
+          ctx.fillRect(0, 0, 1000, 1500);
+
+          // Grid lines effect
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+          ctx.lineWidth = 2;
+          for (let x = 0; x < 1000; x += 50) {
+            ctx.beginPath();
+            ctx.moveTo(x, 0);
+            ctx.lineTo(x, 1500);
+            ctx.stroke();
+          }
+          for (let y = 0; y < 1500; y += 50) {
+            ctx.beginPath();
+            ctx.moveTo(0, y);
+            ctx.lineTo(1000, y);
+            ctx.stroke();
+          }
+
+          // Comic Panel borders
+          ctx.strokeStyle = '#00F0FF';
+          ctx.lineWidth = 8;
+          ctx.strokeRect(60, 60, 880, 1380);
+
+          // Neon Accent Header
+          ctx.fillStyle = '#00F0FF';
+          ctx.font = 'bold 54px Cinzel, sans-serif';
+          ctx.fillText(title.toUpperCase(), 100, 180);
+
+          // Subtitle / Narrative
+          ctx.fillStyle = '#FF0055';
+          ctx.font = '600 28px Inter, sans-serif';
+          ctx.fillText(`EPISODE: 0${pageNumber} — ${subtitle.toUpperCase()}`, 100, 240);
+
+          // Comic illustration shapes (Geometric futuristic cityscape)
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.04)';
+          ctx.fillRect(100, 300, 800, 680);
+          ctx.strokeStyle = '#FF0055';
+          ctx.lineWidth = 3;
+          ctx.strokeRect(100, 300, 800, 680);
+
+          // City buildings silhouettes
+          ctx.fillStyle = '#0c0f1d';
+          ctx.fillRect(140, 550, 120, 430);
+          ctx.fillRect(300, 420, 160, 560);
+          ctx.fillRect(500, 500, 140, 480);
+          ctx.fillRect(680, 380, 180, 600);
+
+          // Cyberpunk glowing moon/sun
+          ctx.beginPath();
+          ctx.arc(500, 440, 90, 0, Math.PI * 2);
+          ctx.fillStyle = '#FFE600';
+          ctx.shadowColor = '#FFE600';
+          ctx.shadowBlur = 40;
+          ctx.fill();
+          ctx.shadowBlur = 0;
+
+          // Comic Speech Bubble
+          ctx.fillStyle = '#ffffff';
+          ctx.beginPath();
+          ctx.roundRect(160, 1060, 680, 160, [24]);
+          ctx.fill();
+
+          // Bubble tail
+          ctx.beginPath();
+          ctx.moveTo(340, 1060);
+          ctx.lineTo(310, 1010);
+          ctx.lineTo(380, 1060);
+          ctx.fill();
+
+          // Speech text
+          ctx.fillStyle = '#111827';
+          ctx.font = 'bold 24px Inter, sans-serif';
+          if (pageNumber === 1) {
+            ctx.fillText('"The neural relay in Neo-Kyoto is operational."', 200, 1125);
+            ctx.fillText('All readers have full offline zero-latency clearance.', 200, 1165);
+          } else if (pageNumber === 2) {
+            ctx.fillText('"Double-spread modes & Manga RTL enabled."', 200, 1125);
+            ctx.fillText('Universal graphic novel decoding without servers.', 200, 1165);
+          } else if (pageNumber === 3) {
+            ctx.fillText('"The Glassmorphic interface responds to touches."', 200, 1125);
+            ctx.fillText('Reading stats, eye warmth, and OLED black engaged.', 200, 1165);
+          } else {
+            ctx.fillText('"Welcome to Aura Reader — Your private sanctum."', 200, 1125);
+            ctx.fillText('Import your own .cbz, .pdf, or .epub to continue.', 200, 1165);
+          }
+
+          // Page Number indicator at bottom
+          ctx.fillStyle = '#ffffff';
+          ctx.font = '500 24px monospace';
+          ctx.fillText(`PAGE ${pageNumber} OF 4`, 440, 1370);
+
+          canvas.toBlob((blob) => resolve(blob), 'image/jpeg', 0.92);
+        });
+      }
+
+      static async createSampleComicCBZ() {
+        const zip = new JSZip();
+        const p1 = await this.generateComicPanelBlob(1, "Neon Horizon", "Awakening");
+        const p2 = await this.generateComicPanelBlob(2, "Neon Horizon", "The Grid");
+        const p3 = await this.generateComicPanelBlob(3, "Neon Horizon", "Quantum Flux");
+        const p4 = await this.generateComicPanelBlob(4, "Neon Horizon", "Sanctuary");
+
+        zip.file("01_page.jpg", p1);
+        zip.file("02_page.jpg", p2);
+        zip.file("03_page.jpg", p3);
+        zip.file("04_page.jpg", p4);
+
+        const content = await zip.generateAsync({ type: "arraybuffer" });
+        return {
+          id: 'sample-comic-cbz',
+          title: 'Neon Horizon: Genesis',
+          author: 'Aura Studio',
+          format: 'cbz',
+          category: 'comic',
+          collection: 'Graphic Novels',
+          totalPages: 4,
+          currentPage: 1,
+          progress: 0,
+          updatedAt: Date.now(),
+          fileBuffer: content,
+          coverDataUrl: null, // Will extract from page 1
+        };
+      }
+
+      static createSampleClassicEpub() {
+        const textContent = `
+          <h1>A Scandal in Bohemia</h1>
+          <p class="lead">By Arthur Conan Doyle</p>
+          
+          <h2>Chapter I</h2>
+          <p>To Sherlock Holmes she is always <em>the</em> woman. I have seldom heard him mention her under any other name. In his eyes she obscures and predominates the whole of her sex. It was not that he felt any emotion akin to love for Irene Adler. All emotions, and that one particularly, were abhorrent to his cold, precise but admirably balanced mind.</p>
+          <p>He was, I take it, the most perfect reasoning and observing machine that the world has seen, but as a lover he would have placed himself in a false position. He never spoke of the softer passions, save with a gibe and a sneer. They were admirable things for the observer—excellent for drawing the veil from men’s motives and actions. But for the trained reasoner to admit such intrusions into his own delicate and finely adjusted temperament was to introduce a distracting factor which might throw a doubt upon all his mental results.</p>
+          <p>Grit in a sensitive instrument, or a crack in one of his own high-power lenses, would not be more disturbing than a strong emotion in a nature such as his. And yet there was but one woman to him, and that woman was the late Irene Adler, of dubious and questionable memory.</p>
+          
+          <h2>Chapter II</h2>
+          <p>I had seen little of Holmes lately. My marriage had drifted us away from each other. My own complete happiness, and the home-centred interests which rise up around the man who first finds himself master of his own establishment, were sufficient to absorb all my attention, while Holmes, who loathed every form of society with his whole Bohemian soul, remained in our lodgings in Baker Street, buried among his old books, and alternating from week to week between cocaine and ambition, the drowsiness of the drug, and the fierce energy of his own keen nature.</p>
+          <p>He was still, as ever, deeply attracted by the study of crime, and occupied his immense faculties and extraordinary powers of observation in following out those clues, and clearing up those mysteries which had been abandoned as hopeless by the official police. From time to time I heard some vague account of his doings: of his summons to Odessa in the case of the Trepoff murder, of his clearing up of the singular tragedy of the Atkinson brothers at Trincomalee, and finally of the mission which he had accomplished so delicately and successfully for the reigning family of Holland.</p>
+          
+          <h2>Chapter III</h2>
+          <p>One night—it was on the twentieth of March, 1888—I was returning from a journey to a patient (for I had now returned to civil practice), when my way led me through Baker Street. As I passed the well-remembered door, which must always be associated in my mind with my wooing, and with the dark incidents of the Study in Scarlet, I was seized with a keen desire to see Holmes again, and to know how his extraordinary powers were being employed.</p>
+          <p>His rooms were brilliantly lit, and, even as I looked up, I saw his tall, spare figure pass twice in a dark silhouette against the blind. He was pacing the room swiftly, eagerly, with his head sunk upon his chest and his hands clasped behind him. To me, who knew his every mood and habit, his attitude and manner told their own story. He was at work again. He had risen out of his drug-created dreams and was hot upon the scent of some new problem.</p>
+        `;
+
+        return {
+          id: 'sample-classic-holmes',
+          title: 'A Scandal in Bohemia',
+          author: 'Arthur Conan Doyle',
+          format: 'epub',
+          category: 'epub',
+          collection: 'Classics',
+          totalPages: 18,
+          currentPage: 1,
+          progress: 0,
+          updatedAt: Date.now() - 10000,
+          textContent: textContent,
+          toc: [
+            { title: 'Chapter I', anchor: 'Chapter I' },
+            { title: 'Chapter II', anchor: 'Chapter II' },
+            { title: 'Chapter III', anchor: 'Chapter III' }
+          ]
+        };
+      }
+
+      static createSampleFB2Fiction() {
+        const fb2Xml = `<?xml version="1.0" encoding="utf-8"?>
+        <FictionBook xmlns="http://www.gribuser.ru/xml/fictionbook/2.0">
+          <description>
+            <title-info>
+              <genre>science_fiction</genre>
+              <author><first-name>Stanisław</first-name><last-name>Lem</last-name></author>
+              <book-title>Solaris Chronicle</book-title>
+            </title-info>
+          </description>
+          <body>
+            <title><p>SOLARIS CHRONICLE</p></title>
+            <section>
+              <title><p>I. The Descent</p></title>
+              <p>At 19:00 hours ship time, according to the chronometer, I made my way to the launching bay. The capsule had been pressurized and checked twice. The oceanic planet swung beneath us like a colossal sphere of turbulent mercury.</p>
+              <p>Through the thick observation port, the plasmic waves rolled in majestic, non-Euclidean formations. No terrestrial mathematics could fully encompass the sentient liquid structures known as Mimoids and Extensiors.</p>
+            </section>
+            <section>
+              <title><p>II. Station Atmosphere</p></title>
+              <p>The airlock hiss died away, replaced by the deep hum of the thermal vents. Snow, or what seemed like snow, was falling within the inner atrium—an electrostatic precipitation caused by the ocean’s magnetic pulses.</p>
+              <p>I called out for Dr. Snaut, but only my own boots echoed across the metal grill.</p>
+            </section>
+          </body>
+        </FictionBook>`;
+
+        return {
+          id: 'sample-fb2-solaris',
+          title: 'Solaris Chronicle',
+          author: 'Stanisław Lem',
+          format: 'fb2',
+          category: 'doc',
+          collection: 'Sci-Fi',
+          totalPages: 12,
+          currentPage: 1,
+          progress: 0,
+          updatedAt: Date.now() - 20000,
+          rawXml: fb2Xml,
+          toc: [
+            { title: 'I. The Descent', anchor: 'I. The Descent' },
+            { title: 'II. Station Atmosphere', anchor: 'II. Station Atmosphere' }
+          ]
+        };
+      }
+    }
+
+
+    /* --- 3. FORMAT PARSING ENGINE (Client-Side Universal Hub) --- */
+    class FormatParserHub {
+      
+      // Parse Comic Archives (.cbz, .cbr, .cb7, .cbt)
+      static async parseComicArchive(fileBuffer, fileName) {
+        try {
+          const zip = new JSZip();
+          const loadedZip = await zip.loadAsync(fileBuffer);
+          const imageExtensions = ['.jpg', '.jpeg', '.png', '.webp', '.avif', '.gif'];
+          
+          let fileEntries = [];
+          loadedZip.forEach((relativePath, zipEntry) => {
+            const lower = relativePath.toLowerCase();
+            if (!zipEntry.dir && imageExtensions.some(ext => lower.endsWith(ext)) && !lower.includes('__macosx')) {
+              fileEntries.push(zipEntry);
+            }
+          });
+
+          // Natural alphanumeric sort for pages (page_1, page_2, page_10)
+          fileEntries.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
+
+          if (fileEntries.length === 0) {
+            throw new Error("No readable image pages found inside this comic archive.");
+          }
+
+          // Extract cover image as data URL
+          const firstImageBlob = await fileEntries[0].async('blob');
+          const coverUrl = URL.createObjectURL(firstImageBlob);
+
+          return {
+            pageEntries: fileEntries,
+            pageCount: fileEntries.length,
+            coverUrl: coverUrl,
+            getPageBlob: async (index) => {
+              if (index < 0 || index >= fileEntries.length) return null;
+              return await fileEntries[index].async('blob');
+            }
+          };
         } catch (err) {
-          console.warn('Failed to parse zip/cbz directly, creating fallback reader container', err);
+          console.error("Comic Parse Error:", err);
+          throw new Error("Failed to unpack comic archive. " + err.message);
         }
       }
 
-      // EPUB Container Parsing (.epub)
-      if (ext === 'epub') {
-        try {
-          const zip = await JSZip.loadAsync(file);
-          const htmlFiles = Object.keys(zip.files)
-            .filter(name => /\.(xhtml|html|htm)$/i.test(name) && !name.includes('toc') && !name.startsWith('__MACOSX'))
-            .sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
+      // Parse FB2 FictionBook XML
+      static parseFB2(xmlString) {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(xmlString, "application/xml");
+        
+        // Metadata extraction
+        const title = doc.querySelector("book-title")?.textContent || "Untitled FictionBook";
+        const firstName = doc.querySelector("first-name")?.textContent || "";
+        const lastName = doc.querySelector("last-name")?.textContent || "";
+        const author = `${firstName} ${lastName}`.trim() || "Unknown Author";
 
-          if (htmlFiles.length > 0) {
-            const chapters = [];
-            for (let i = 0; i < htmlFiles.length; i++) {
-              const rawHtml = await zip.files[htmlFiles[i]].async('text');
-              const doc = new DOMParser().parseFromString(rawHtml, 'text/html');
-              // Strip scripts/styles for safety & clean presentation
-              doc.querySelectorAll('script, style').forEach(el => el.remove());
-              const cleanText = doc.body.innerText.trim();
-              if (cleanText.length > 20) {
-                chapters.push({
-                  title: doc.querySelector('h1, h2, h3')?.innerText || `Chapter ${chapters.length + 1}`, content: cleanText }); } } if (chapters.length > 0) { return { ...baseItem, type: 'ebook', format: 'EPUB', totalPages: chapters.length, chapters }; } } } catch (err) { console.warn('Epub parser fallback', err); } }  // Universal Structured Reader Fallback for proprietary/specialized formats (.pdf, .mobi, .azw3, .fb2, etc.) return { ...baseItem, type: ['cbr', 'cbt', 'cb7'].includes(ext) ? 'comic' : 'ebook', format: ext.toUpperCase(), totalPages: 3, chapters: [ { title: `${file.name} (Client-Side Ingest)`,
-            content: `The format [${ext.toUpperCase()}] has been non-destructively ingested into browser storage.\n\nFile Size: ${(file.size / 1024 / 1024).toFixed(2)} MB\nLast Modified:${new Date(file.lastModified).toLocaleDateString()}\n\nAll metadata, bookmarks, highlights, and reading stats are maintained purely inside your local browser instance without transferring bytes to any server.`
-          },
-          {
-            title: 'Technical Notes & Security',
-            content: `Aura Reader operates under strict zero-network transmission policy for local files. Your source file on disk is never altered, locked, or modified.`
-          }
-        ],
-        pages: [
-          {
-            title: `${file.name} - Page 1`,
-            svgBg: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)',
-            tag: `${ext.toUpperCase()} DOCUMENT`, subtitle: file.name, caption: 'Client-side isolated render.' } ] }; }  // ========================================== // 5. MAIN APPLICATION COMPONENT // ========================================== function AuraApp() { // Library State const [books, setBooks] = useState([]); const [folders, setFolders] = useState([ { id: 'all', name: 'All Books' }, { id: 'ebooks', name: 'E-Books' }, { id: 'comics', name: 'Comics & Manga' } ]); const [selectedFolder, setSelectedFolder] = useState('all'); const [searchQuery, setSearchQuery] = useState(''); const [activeBookId, setActiveBookId] = useState(null);  // Reader Display Filters & Aesthetics const [theme, setTheme] = useState('midnight'); // midnight, trueblack, sepia, paper, softmint const [warmth, setWarmth] = useState(0); // 0 - 100\% amber const [brightness, setBrightness] = useState(100); // 50 - 150\% const [contrast, setContrast] = useState(100); // 75 - 125\% const [nightInvert, setNightInvert] = useState(false);  // Typography Settings const [fontFamily, setFontFamily] = useState('serif'); // serif, sans, dyslexic, mono const [fontSize, setFontSize] = useState(18); // 14 to 32px const [lineHeight, setLineHeight] = useState(1.8); const [letterSpacing, setLetterSpacing] = useState(0); const [textAlign, setTextAlign] = useState('left'); const [marginWidth, setMarginWidth] = useState('normal'); // compact, normal, wide const [readerMode, setReaderMode] = useState('paginated'); // paginated, vertical  // Comic Reader Settings const [comicLayout, setComicLayout] = useState('single'); // single, spread, webtoon const [mangaRTL, setMangaRTL] = useState(false); // Right-to-Left const [comicFit, setComicFit] = useState('fit-height'); // fit-height, fit-width  // Modals & Panels const [showSettingsModal, setShowSettingsModal] = useState(false); const [showTOCModal, setShowTOCModal] = useState(false); const [showAnnotationsModal, setShowAnnotationsModal] = useState(false); const [showStatsModal, setShowStatsModal] = useState(false); const [showNewFolderModal, setShowNewFolderModal] = useState(false); const [newFolderName, setNewFolderName] = useState('');  // Annotations & Highlights const [annotations, setAnnotations] = useState([]); const [selectedText, setSelectedText] = useState(''); const [activeHighlightColor, setActiveHighlightColor] = useState('#fbbf24'); // Yellow, Cyan, Rose, Green  // Reading Stats const [stats, setStats] = useState({ totalSeconds: 3420, pagesTurned: 84, booksFinished: 1 });  // ---------------------------------------- // Lifecycle: Initialize IndexedDB & Defaults // ---------------------------------------- useEffect(() => { async function init() { try { const storedBooks = await dbGetAll('books'); const storedFolders = await dbGetAll('folders'); const storedAnnotations = await dbGetAll('annotations'); const storedStats = await dbGet('stats', 'reading_stats');  if (storedBooks.length === 0) { await dbPut('books', SAMPLE_EPUB); await dbPut('books', SAMPLE_COMIC); setBooks([SAMPLE_EPUB, SAMPLE_COMIC]); } else { setBooks(storedBooks); }  if (storedFolders.length > 0) { setFolders(storedFolders); }  if (storedAnnotations.length > 0) { setAnnotations(storedAnnotations); }  if (storedStats) { setStats(storedStats.data); } } catch (e) { console.error('IndexedDB load error', e); setBooks([SAMPLE_EPUB, SAMPLE_COMIC]); } } init(); }, []);  // Reading Timer for Statistics useEffect(() => { if (!activeBookId) return; const interval = setInterval(() => { setStats(prev => { const updated = { ...prev, totalSeconds: prev.totalSeconds + 1 }; dbPut('stats', { key: 'reading_stats', data: updated }); return updated; }); }, 1000); return () => clearInterval(interval); }, [activeBookId]);  // Active Book Ref const activeBook = useMemo(() => { return books.find(b => b.id === activeBookId) \vert{}\vert{} null; }, [books, activeBookId]);  // ---------------------------------------- // Handlers // ---------------------------------------- const handleFileUpload = async (event) => { const files = Array.from(event.target.files); if (!files.length) return;  for (const file of files) { const parsed = await parseUploadedFile(file); await dbPut('books', parsed); setBooks(prev => [parsed, ...prev]); } };  const handleCreateFolder = async () => { if (!newFolderName.trim()) return; const newF = { id: 'folder_' + Date.now(), name: newFolderName.trim() }; const updated = [...folders, newF]; setFolders(updated); await dbPut('folders', newF); setNewFolderName(''); setShowNewFolderModal(false); };  const handleDeleteBook = async (bookId, e) => { e.stopPropagation(); await dbDelete('books', bookId); setBooks(prev => prev.filter(b => b.id !== bookId)); if (activeBookId === bookId) setActiveBookId(null); };  const handlePageTurn = (delta) => { if (!activeBook) return; const actualDelta = (activeBook.type === 'comic' && mangaRTL) ? -delta : delta; const newPage = Math.max(0, Math.min(activeBook.totalPages - 1, activeBook.currentPage + actualDelta));  if (newPage !== activeBook.currentPage) { const updatedBook = { ...activeBook, currentPage: newPage }; setBooks(prev => prev.map(b => b.id === activeBook.id ? updatedBook : b)); dbPut('books', updatedBook);  setStats(prev => { const up = { ...prev, pagesTurned: prev.pagesTurned + 1 }; dbPut('stats', { key: 'reading_stats', data: up }); return up; }); } };  const handleAddBookmark = () => { if (!activeBook) return; const isBookmarked = activeBook.isBookmarked; const updated = { ...activeBook, isBookmarked: !isBookmarked }; setBooks(prev => prev.map(b => b.id === activeBook.id ? updated : b)); dbPut('books', updated); };  const handleAddHighlight = (color) => { if (!selectedText \vert{}\vert{} !activeBook) return; const newAnnotation = { id: 'anno_' + Date.now(), bookId: activeBook.id, bookTitle: activeBook.title, page: activeBook.currentPage, text: selectedText, color, note: '', date: new Date().toISOString() }; const updated = [newAnnotation, ...annotations]; setAnnotations(updated); dbPut('annotations', newAnnotation); setSelectedText(''); };  const exportAnnotations = (format) => { const bookAnnotations = annotations.filter(a => !activeBookId \vert{}\vert{} a.bookId === activeBookId); let blob; if (format === 'json') { blob = new Blob([JSON.stringify(bookAnnotations, null, 2)], { type: 'application/json' }); } else { const md = bookAnnotations.map(a => `### ${a.bookTitle} (Page ${a.page + 1})\n>${a.text}\n\n*Note: ${a.note \vert{}\vert{} 'None'}*\n*Date:${new Date(a.date).toLocaleDateString()}*\n\n---`).join('\n\n');
-          blob = new Blob([md], { type: 'text/markdown' });
+        // Chapters & Body
+        const sections = doc.querySelectorAll("body > section");
+        let htmlOutput = "";
+        let toc = [];
+
+        sections.forEach((sec, idx) => {
+          const secTitle = sec.querySelector("title")?.textContent?.trim() || `Section ${idx + 1}`;
+          toc.push({ title: secTitle, anchor: `sec-${idx}` });
+          htmlOutput += `<h2 id="sec-${idx}">${secTitle}</h2>`;
+          
+          sec.querySelectorAll("p").forEach(p => {
+            htmlOutput += `<p>${p.textContent}</p>`;
+          });
+        });
+
+        if (!htmlOutput) {
+          // Fallback if sections aren't structured
+          htmlOutput = `<div>${doc.querySelector("body")?.textContent || xmlString}</div>`;
         }
+
+        return { title, author, htmlOutput, toc };
+      }
+
+      // Parse Plain Text & Markdown
+      static parseTextOrMarkdown(text, fileName) {
+        const title = fileName.replace(/\.[^/.]+$/, "");
+        
+        // Simple client-side Markdown styling
+        let formatted = text
+          .replace(/^### (.*$)/gim, '<h3>$1</h3>')
+          .replace(/^## (.*$)/gim, '<h2>$1</h2>')
+          .replace(/^# (.*$)/gim, '<h1>$1</h1>')
+          .replace(/\*\*(.*)\*\*/gim, '<strong>$1</strong>')
+          .replace(/\*(.*)\*/gim, '<em>$1</em>')
+          .split('\n\n')
+          .map(para => `<p>${para.replace(/\n/g, '<br>')}</p>`)
+          .join('');
+
+        return {
+          title: title,
+          author: 'Document',
+          htmlOutput: formatted,
+          toc: [{ title: 'Beginning', anchor: '' }]
+        };
+      }
+
+      // Parse DOCX via Mammoth
+      static async parseDOCX(arrayBuffer, fileName) {
+        if (window.mammoth) {
+          const result = await mammoth.convertToHtml({ arrayBuffer: arrayBuffer });
+          return {
+            title: fileName.replace(/\.[^/.]+$/, ""),
+            author: 'Word Document',
+            htmlOutput: result.value,
+            toc: [{ title: 'Document Start', anchor: '' }]
+          };
+        }
+        throw new Error("DOCX parser not ready.");
+      }
+    }
+
+
+    /* --- 4. AURA READER CORE STATE CONTROLLER --- */
+    class AuraApp {
+      constructor() {
+        this.books = [];
+        this.activeBook = null;
+        this.currentComicData = null; // cached comic page getters
+        this.pdfDoc = null;
+        this.currentFilter = 'all';
+        this.activeCollection = 'all';
+        this.collections = new Set(['Classics', 'Graphic Novels', 'Sci-Fi']);
+
+        // Reader State
+        this.readingSettings = {
+          theme: 'theme-midnight',
+          font: 'sans',
+          fontSize: 18,
+          lineHeight: 1.8,
+          margin: 'normal',
+          align: 'left',
+          flow: 'paginated', // 'paginated' or 'scroll'
+          comicMode: 'single', // 'single', 'double', 'webtoon', 'manga-rtl'
+          comicFit: 'height', // 'height', 'width', 'original'
+          warmth: 0,
+          brightness: 100,
+          contrast: 100,
+          invert: false,
+        };
+
+        // Stats tracking
+        this.readingTimer = null;
+        this.sessionPagesTurned = 0;
+        this.sessionSeconds = 0;
+      }
+
+      async init() {
+        await auraDB.open();
+        await this.loadSettings();
+        await this.loadLibrary();
+
+        // If library is brand new, seed with rich interactive samples
+        if (this.books.length === 0) {
+          await this.seedDefaultLibrary();
+        }
+
+        this.applyTheme(this.readingSettings.theme);
+        this.applyDisplayFilters();
+        this.initEventListeners();
+        this.renderCollectionsBar();
+        this.renderLibraryShelf();
+        lucide.createIcons();
+
+        // Start reading session timer
+        setInterval(() => {
+          if (this.activeBook) {
+            this.sessionSeconds += 1;
+          }
+        }, 1000);
+      }
+
+      async loadSettings() {
+        const saved = await auraDB.getSetting('reader_settings');
+        if (saved) {
+          this.readingSettings = { ...this.readingSettings, ...saved };
+        }
+      }
+
+      async saveSettings() {
+        await auraDB.saveSetting('reader_settings', this.readingSettings);
+      }
+
+      async loadLibrary() {
+        this.books = await auraDB.getAllBooks();
+        this.books.forEach(b => {
+          if (b.collection) this.collections.add(b.collection);
+        });
+      }
+
+      async seedDefaultLibrary() {
+        this.showToast("Setting up your Aura Library with classic samples...", "info");
+        const comicBook = await SampleLibraryGenerator.createSampleComicCBZ();
+        const epubBook = SampleLibraryGenerator.createSampleClassicEpub();
+        const fb2Book = SampleLibraryGenerator.createSampleFB2Fiction();
+
+        await auraDB.saveBook(comicBook);
+        await auraDB.saveBook(epubBook);
+        await auraDB.saveBook(fb2Book);
+
+        this.books = [comicBook, epubBook, fb2Book];
+      }
+
+      showToast(message, type = 'info') {
+        const container = document.getElementById('toast-container');
+        const toast = document.createElement('div');
+        toast.className = `glass-panel px-4 py-2.5 rounded-2xl text-xs sm:text-sm font-medium shadow-2xl flex items-center gap-2 border transition-all duration-300 transform -translate-y-2 opacity-0 pointer-events-auto ${
+          type === 'error' ? 'border-red-500/50 text-red-200' : 'border-cyan-400/50 text-cyan-200'
+        }`;
+        
+        const iconName = type === 'error' ? 'alert-circle' : 'sparkles';
+        toast.innerHTML = `<i data-lucide="${iconName}" class="w-4 h-4"></i><span>${message}</span>`;
+        container.appendChild(toast);
+        lucide.createIcons({ root: toast });
+
+        // Trigger animation
+        requestAnimationFrame(() => {
+          toast.classList.remove('-translate-y-2', 'opacity-0');
+        });
+
+        setTimeout(() => {
+          toast.classList.add('opacity-0', '-translate-y-2');
+          setTimeout(() => toast.remove(), 300);
+        }, 3400);
+      }
+
+      /* --- THEME & EYE COMFORT ENGINE --- */
+      applyTheme(themeName) {
+        document.body.className = `${themeName} min-h-screen overflow-x-hidden transition-colors duration-300`;
+        this.readingSettings.theme = themeName;
+        this.saveSettings();
+      }
+
+      applyDisplayFilters() {
+        const overlay = document.getElementById('screen-filter-overlay');
+        const warmthPct = this.readingSettings.warmth / 100;
+        overlay.style.backgroundColor = `rgba(255, 147, 41, ${warmthPct * 0.4})`;
+
+        const b = this.readingSettings.brightness;
+        const c = this.readingSettings.contrast;
+        const inv = this.readingSettings.invert ? 'invert(1) hue-rotate(180deg)' : '';
+        
+        document.getElementById('reader-viewport').style.filter = `brightness(${b}%) contrast(${c}%) ${inv}`;
+      }
+
+      /* --- SHELF RENDERING & COLLECTIONS --- */
+      renderCollectionsBar() {
+        const bar = document.getElementById('collections-bar');
+        bar.innerHTML = `<span class="text-xs uppercase tracking-wider opacity-40 font-semibold mr-1">Collections:</span>`;
+        
+        const allBtn = document.createElement('button');
+        allBtn.className = `collection-pill px-3 py-1 rounded-lg text-xs font-medium glass-panel ${this.activeCollection === 'all' ? 'bg-white/20 border-cyan-400/50' : 'opacity-70 hover:opacity-100'}`;
+        allBtn.textContent = 'All Books';
+        allBtn.onclick = () => {
+          this.activeCollection = 'all';
+          this.renderCollectionsBar();
+          this.renderLibraryShelf();
+        };
+        bar.appendChild(allBtn);
+
+        this.collections.forEach(col => {
+          const btn = document.createElement('button');
+          btn.className = `collection-pill px-3 py-1 rounded-lg text-xs font-medium glass-panel ${this.activeCollection === col ? 'bg-white/20 border-purple-400/50' : 'opacity-70 hover:opacity-100'}`;
+          btn.textContent = col;
+          btn.onclick = () => {
+            this.activeCollection = col;
+            this.renderCollectionsBar();
+            this.renderLibraryShelf();
+          };
+          bar.appendChild(btn);
+        });
+      }
+
+      renderLibraryShelf() {
+        const grid = document.getElementById('books-grid');
+        const emptyState = document.getElementById('empty-library-state');
+        const countBadge = document.getElementById('book-count-badge');
+        grid.innerHTML = '';
+
+        const searchQuery = (document.getElementById('library-search')?.value || '').toLowerCase();
+
+        const filtered = this.books.filter(b => {
+          // Format filter
+          if (this.currentFilter !== 'all' && b.category !== this.currentFilter) return false;
+          // Collection filter
+          if (this.activeCollection !== 'all' && b.collection !== this.activeCollection) return false;
+          // Search query
+          if (searchQuery) {
+            const matchTitle = b.title.toLowerCase().includes(searchQuery);
+            const matchAuthor = (b.author || '').toLowerCase().includes(searchQuery);
+            const matchCol = (b.collection || '').toLowerCase().includes(searchQuery);
+            if (!matchTitle && !matchAuthor && !matchCol) return false;
+          }
+          return true;
+        });
+
+        countBadge.textContent = `${filtered.length} books`;
+
+        if (filtered.length === 0) {
+          emptyState.classList.remove('hidden');
+          emptyState.classList.add('flex');
+          return;
+        } else {
+          emptyState.classList.add('hidden');
+          emptyState.classList.remove('flex');
+        }
+
+        filtered.forEach(book => {
+          const card = document.createElement('div');
+          card.className = 'glass-card rounded-2xl p-3 flex flex-col justify-between cursor-pointer group relative overflow-hidden';
+          
+          // Badge color by format
+          let badgeColor = 'bg-blue-500/20 text-blue-300 border-blue-400/30';
+          if (book.category === 'comic') badgeColor = 'bg-teal-500/20 text-teal-300 border-teal-400/30';
+          if (book.category === 'doc') badgeColor = 'bg-emerald-500/20 text-emerald-300 border-emerald-400/30';
+
+          const pct = Math.round(book.progress || 0);
+
+          card.innerHTML = `
+            <div class="relative w-full aspect-[2/3] rounded-xl overflow-hidden mb-3 bg-black/40 flex items-center justify-center border border-white/10 group-hover:border-cyan-400/40 transition">
+              ${book.coverDataUrl 
+                ? `<img src="${book.coverDataUrl}" alt="${book.title}" class="w-full h-full object-cover">`
+                : `<div class="p-4 text-center flex flex-col items-center justify-center gap-2">
+                     <i data-lucide="${book.category === 'comic' ? 'book-image' : 'book-open'}" class="w-8 h-8 opacity-40 text-cyan-300"></i>
+                     <span class="text-[11px] font-display font-semibold line-clamp-3 opacity-80">${book.title}</span>
+                   </div>`
+              }
+              <span class="absolute top-2 right-2 text-[10px] font-mono px-2 py-0.5 rounded-full border backdrop-blur-md ${badgeColor}">
+                ${book.format.toUpperCase()}
+              </span>
+            </div>
+            
+            <div class="flex-1 flex flex-col justify-between">
+              <div>
+                <h3 class="font-semibold text-xs sm:text-sm line-clamp-1 group-hover:text-cyan-300 transition">${book.title}</h3>
+                <p class="text-[11px] opacity-60 line-clamp-1 mt-0.5">${book.author || 'Unknown'}</p>
+              </div>
+
+              <div class="mt-3 pt-2 border-t border-white/10 flex items-center justify-between text-[10px] opacity-70">
+                <span>${pct}% Read</span>
+                <span>Page ${book.currentPage || 1}</span>
+              </div>
+              <div class="w-full bg-white/10 h-1 rounded-full mt-1.5 overflow-hidden">
+                <div class="bg-cyan-400 h-full rounded-full transition-all" style="width: ${pct}%"></div>
+              </div>
+            </div>
+
+            <!-- Quick Delete Button (Glass Pop) -->
+            <button class="btn-delete-book absolute top-2 left-2 p-1.5 rounded-full bg-black/60 text-red-300 opacity-0 group-hover:opacity-100 hover:bg-red-500 hover:text-white transition duration-200" title="Remove from Library">
+              <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+            </button>
+          `;
+
+          // Card Click Event -> Open Reader
+          card.onclick = (e) => {
+            if (e.target.closest('.btn-delete-book')) {
+              e.stopPropagation();
+              this.deleteBookPrompt(book.id);
+              return;
+            }
+            this.openReader(book);
+          };
+
+          grid.appendChild(card);
+        });
+
+        lucide.createIcons({ root: grid });
+      }
+
+      async deleteBookPrompt(bookId) {
+        await auraDB.deleteBook(bookId);
+        this.books = this.books.filter(b => b.id !== bookId);
+        this.renderLibraryShelf();
+        this.showToast("Book removed from shelf. Local files untouched.", "info");
+      }
+
+      /* --- INGESTION & DRAG & DROP PIPELINE --- */
+      async handleFiles(files) {
+        if (!files || files.length === 0) return;
+        this.showToast(`Processing ${files.length} file(s)...`, "info");
+
+        for (const file of files) {
+          const ext = file.name.split('.').pop().toLowerCase();
+          const buffer = await file.arrayBuffer();
+          let category = 'doc';
+          let parsedMetadata = null;
+
+          if (['cbz', 'cbr', 'cb7', 'cbt'].includes(ext)) {
+            category = 'comic';
+          } else if (ext === 'epub') {
+            category = 'epub';
+          } else if (ext === 'pdf') {
+            category = 'pdf';
+          }
+
+          let newBook = {
+            id: 'book_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6),
+            title: file.name.replace(/\.[^/.]+$/, ""),
+            author: 'Local File',
+            format: ext,
+            category: category,
+            collection: this.activeCollection !== 'all' ? this.activeCollection : 'General',
+            totalPages: 1,
+            currentPage: 1,
+            progress: 0,
+            updatedAt: Date.now(),
+            fileBuffer: buffer,
+            coverDataUrl: null,
+            textContent: null,
+            toc: []
+          };
+
+          // Format specific parsing
+          try {
+            if (category === 'comic') {
+              const comicData = await FormatParserHub.parseComicArchive(buffer, file.name);
+              newBook.totalPages = comicData.pageCount;
+              newBook.coverDataUrl = comicData.coverUrl;
+            } else if (ext === 'fb2') {
+              const text = new TextDecoder().decode(buffer);
+              const fb2 = FormatParserHub.parseFB2(text);
+              newBook.title = fb2.title;
+              newBook.author = fb2.author;
+              newBook.textContent = fb2.htmlOutput;
+              newBook.toc = fb2.toc;
+            } else if (ext === 'docx') {
+              const docx = await FormatParserHub.parseDOCX(buffer, file.name);
+              newBook.textContent = docx.htmlOutput;
+              newBook.toc = docx.toc;
+            } else if (['txt', 'md', 'html', 'htm'].includes(ext)) {
+              const text = new TextDecoder().decode(buffer);
+              const txt = FormatParserHub.parseTextOrMarkdown(text, file.name);
+              newBook.textContent = txt.htmlOutput;
+              newBook.toc = txt.toc;
+            }
+          } catch (err) {
+            console.warn("Fast metadata parser notice:", err);
+          }
+
+          await auraDB.saveBook(newBook);
+          this.books.unshift(newBook);
+        }
+
+        this.renderCollectionsBar();
+        this.renderLibraryShelf();
+        this.showToast("Files securely ingested into offline storage!", "info");
+      }
+
+      /* --- 5. READING ENGINE & VIEWPORTS --- */
+      async openReader(book) {
+        this.activeBook = book;
+        document.getElementById('library-view').classList.add('hidden');
+        document.getElementById('reader-view').classList.remove('hidden');
+
+        document.getElementById('reader-title').textContent = book.title;
+        document.getElementById('reader-author').textContent = book.author || book.format.toUpperCase();
+
+        // Reset containers
+        document.getElementById('text-engine-container').classList.add('hidden');
+        document.getElementById('comic-engine-container').classList.add('hidden');
+        document.getElementById('pdf-engine-container').classList.add('hidden');
+        document.getElementById('epub-render-area').classList.add('hidden');
+
+        const comicBtn = document.getElementById('btn-comic-layout');
+
+        if (book.category === 'comic') {
+          comicBtn.classList.remove('hidden');
+          await this.mountComicEngine(book);
+        } else if (book.category === 'pdf') {
+          comicBtn.classList.add('hidden');
+          await this.mountPdfEngine(book);
+        } else {
+          // Reflowable text engine
+          comicBtn.classList.add('hidden');
+          this.mountTextEngine(book);
+        }
+
+        this.updateScrubberUI();
+        this.updateBookmarkActiveState();
+      }
+
+      closeReader() {
+        // Save state
+        if (this.activeBook) {
+          this.activeBook.updatedAt = Date.now();
+          auraDB.saveBook(this.activeBook);
+        }
+        document.getElementById('reader-view').classList.add('hidden');
+        document.getElementById('library-view').classList.remove('hidden');
+        this.activeBook = null;
+        this.renderLibraryShelf();
+      }
+
+      /* --- COMIC / MANGA ENGINE --- */
+      async mountComicEngine(book) {
+        const container = document.getElementById('comic-engine-container');
+        container.classList.remove('hidden');
+
+        try {
+          if (!this.currentComicData || this.currentComicData.bookId !== book.id) {
+            const data = await FormatParserHub.parseComicArchive(book.fileBuffer, book.title);
+            this.currentComicData = { ...data, bookId: book.id };
+            book.totalPages = data.pageCount;
+          }
+          this.renderComicPage();
+        } catch (err) {
+          this.showToast("Error loading comic pages: " + err.message, "error");
+        }
+      }
+
+      async renderComicPage() {
+        if (!this.currentComicData || !this.activeBook) return;
+        const wrapper = document.getElementById('comic-pages-wrapper');
+        const mode = this.readingSettings.comicMode;
+        const fit = this.readingSettings.comicFit;
+        wrapper.innerHTML = '';
+
+        const cur = this.activeBook.currentPage || 1;
+        const total = this.activeBook.totalPages;
+
+        // Apply Fit strategy classes
+        let fitClass = 'max-h-full object-contain';
+        if (fit === 'width') fitClass = 'w-full object-contain';
+        if (fit === 'original') fitClass = 'max-w-none';
+
+        if (mode === 'webtoon') {
+          // Continuous vertical strip
+          wrapper.className = "flex flex-col items-center w-full max-w-4xl mx-auto py-12 gap-1";
+          for (let i = 0; i < total; i++) {
+            const blob = await this.currentComicData.getPageBlob(i);
+            const img = document.createElement('img');
+            img.src = URL.createObjectURL(blob);
+            img.className = "w-full object-cover rounded shadow-md";
+            img.loading = "lazy";
+            wrapper.appendChild(img);
+          }
+          return;
+        }
+
+        // Single or Double Spread
+        const isDouble = (mode === 'double' || mode === 'manga-rtl') && window.innerWidth >= 768 && cur < total;
+        wrapper.className = `w-full h-full flex items-center justify-center p-2 sm:p-4 gap-2 ${
+          mode === 'manga-rtl' ? 'flex-row-reverse' : 'flex-row'
+        }`;
+
+        // Page 1
+        const blob1 = await this.currentComicData.getPageBlob(cur - 1);
+        if (blob1) {
+          const img1 = document.createElement('img');
+          img1.src = URL.createObjectURL(blob1);
+          img1.className = `${fitClass} rounded shadow-2xl transition duration-200 select-none`;
+          wrapper.appendChild(img1);
+        }
+
+        // Optional Page 2 for Double Spread
+        if (isDouble && cur < total) {
+          const blob2 = await this.currentComicData.getPageBlob(cur);
+          if (blob2) {
+            const img2 = document.createElement('img');
+            img2.src = URL.createObjectURL(blob2);
+            img2.className = `${fitClass} rounded shadow-2xl transition duration-200 select-none`;
+            wrapper.appendChild(img2);
+          }
+        }
+      }
+
+      /* --- PDF ENGINE --- */
+      async mountPdfEngine(book) {
+        const container = document.getElementById('pdf-engine-container');
+        container.classList.remove('hidden');
+
+        try {
+          const loadingTask = pdfjsLib.getDocument({ data: book.fileBuffer });
+          this.pdfDoc = await loadingTask.promise;
+          book.totalPages = this.pdfDoc.numPages;
+          this.renderPdfPage(book.currentPage || 1);
+        } catch (err) {
+          this.showToast("PDF rendering error: " + err.message, "error");
+        }
+      }
+
+      async renderPdfPage(num) {
+        if (!this.pdfDoc) return;
+        const page = await this.pdfDoc.getPage(num);
+        const canvas = document.getElementById('pdf-canvas');
+        const ctx = canvas.getContext('2d');
+
+        // Dynamic scale according to window width
+        const viewport = page.getViewport({ scale: 1.5 });
+        canvas.height = viewport.height;
+        canvas.width = viewport.width;
+
+        const renderContext = {
+          canvasContext: ctx,
+          viewport: viewport
+        };
+        await page.render(renderContext).promise;
+      }
+
+      /* --- REFLOWABLE TEXT ENGINE (EPUB / DOCX / FB2 / TXT / MD) --- */
+      mountTextEngine(book) {
+        const container = document.getElementById('text-engine-container');
+        const target = document.getElementById('text-content-target');
+        container.classList.remove('hidden');
+
+        target.innerHTML = book.textContent || '<p class="opacity-50">Empty text document.</p>';
+        this.applyTypographyStyles();
+
+        // Scroll to relative position if saved
+        setTimeout(() => {
+          if (book.scrollRatio) {
+            container.scrollTop = book.scrollRatio * (container.scrollHeight - container.clientHeight);
+          }
+        }, 50);
+
+        // Track continuous scroll reading progress
+        container.onscroll = () => {
+          const maxScroll = container.scrollHeight - container.clientHeight;
+          if (maxScroll > 0) {
+            const ratio = container.scrollTop / maxScroll;
+            book.scrollRatio = ratio;
+            book.progress = Math.min(100, Math.round(ratio * 100));
+            this.updateScrubberUI();
+          }
+        };
+      }
+
+      applyTypographyStyles() {
+        const root = document.documentElement;
+        const s = this.readingSettings;
+
+        root.style.setProperty('--reader-font-size', `${s.fontSize}px`);
+        root.style.setProperty('--reader-line-height', `${s.lineHeight}`);
+        root.style.setProperty('--reader-align', s.align);
+
+        let marginPx = '1.5rem';
+        if (s.margin === 'compact') marginPx = '0.5rem';
+        if (s.margin === 'wide') marginPx = '3.5rem';
+        root.style.setProperty('--reader-margin', marginPx);
+
+        const target = document.getElementById('text-content-target');
+        if (target) {
+          target.style.paddingLeft = marginPx;
+          target.style.paddingRight = marginPx;
+          target.style.fontFamily = `var(--font-${s.font}, 'Inter', sans-serif)`;
+        }
+      }
+
+      /* --- NAVIGATION & PAGE TURNS --- */
+      nextPage() {
+        if (!this.activeBook) return;
+        const isMangaRtl = this.activeBook.category === 'comic' && this.readingSettings.comicMode === 'manga-rtl';
+        
+        if (isMangaRtl) {
+          this.navigateBackward();
+        } else {
+          this.navigateForward();
+        }
+      }
+
+      prevPage() {
+        if (!this.activeBook) return;
+        const isMangaRtl = this.activeBook.category === 'comic' && this.readingSettings.comicMode === 'manga-rtl';
+        
+        if (isMangaRtl) {
+          this.navigateForward();
+        } else {
+          this.navigateBackward();
+        }
+      }
+
+      navigateForward() {
+        if (!this.activeBook) return;
+        const step = (this.readingSettings.comicMode === 'double' && this.activeBook.category === 'comic') ? 2 : 1;
+        
+        if (this.activeBook.currentPage < this.activeBook.totalPages) {
+          this.activeBook.currentPage = Math.min(this.activeBook.totalPages, this.activeBook.currentPage + step);
+          this.onPageChanged();
+        }
+      }
+
+      navigateBackward() {
+        if (!this.activeBook) return;
+        const step = (this.readingSettings.comicMode === 'double' && this.activeBook.category === 'comic') ? 2 : 1;
+
+        if (this.activeBook.currentPage > 1) {
+          this.activeBook.currentPage = Math.max(1, this.activeBook.currentPage - step);
+          this.onPageChanged();
+        }
+      }
+
+      onPageChanged() {
+        const book = this.activeBook;
+        book.progress = Math.round((book.currentPage / book.totalPages) * 100);
+        this.sessionPagesTurned++;
+
+        if (book.category === 'comic') {
+          this.renderComicPage();
+        } else if (book.category === 'pdf') {
+          this.renderPdfPage(book.currentPage);
+        }
+
+        this.updateScrubberUI();
+        this.updateBookmarkActiveState();
+        auraDB.saveBook(book);
+      }
+
+      updateScrubberUI() {
+        if (!this.activeBook) return;
+        const cur = this.activeBook.currentPage || 1;
+        const total = this.activeBook.totalPages || 1;
+        const scrubber = document.getElementById('reader-scrubber');
+        
+        scrubber.min = 1;
+        scrubber.max = total;
+        scrubber.value = cur;
+
+        document.getElementById('page-num-current').textContent = cur;
+        document.getElementById('page-num-total').textContent = total;
+        document.getElementById('reading-percent-label').textContent = `${this.activeBook.progress || 0}% read`;
+
+        // Estimate remaining reading time
+        const pagesLeft = total - cur;
+        const estMin = Math.max(1, Math.round(pagesLeft * 1.5));
+        document.getElementById('reading-time-left').textContent = `~${estMin}m left`;
+      }
+
+      async updateBookmarkActiveState() {
+        if (!this.activeBook) return;
+        const annotations = await auraDB.getAnnotations(this.activeBook.id);
+        const hasBookmark = annotations.some(a => a.type === 'bookmark' && a.page === this.activeBook.currentPage);
+        
+        const dot = document.getElementById('bookmark-active-dot');
+        if (hasBookmark) {
+          dot.classList.remove('hidden');
+        } else {
+          dot.classList.add('hidden');
+        }
+      }
+
+      toggleControls() {
+        const topBar = document.getElementById('reader-top-bar');
+        const bottomBar = document.getElementById('reader-bottom-bar');
+        const isHidden = topBar.classList.contains('-translate-y-full');
+
+        if (isHidden) {
+          topBar.classList.remove('-translate-y-full');
+          bottomBar.classList.remove('translate-y-full');
+        } else {
+          topBar.classList.add('-translate-y-full');
+          bottomBar.classList.add('translate-y-full');
+        }
+      }
+
+      /* --- 6. EVENT LISTENERS & USER INTERACTIONS --- */
+      initEventListeners() {
+        // Drag & Drop Setup
+        const dropZone = document.getElementById('drop-zone');
+        window.addEventListener('dragover', (e) => {
+          e.preventDefault();
+          dropZone.classList.add('border-cyan-400', 'bg-cyan-500/10');
+        });
+        window.addEventListener('dragleave', (e) => {
+          if (e.relatedTarget === null) {
+            dropZone.classList.remove('border-cyan-400', 'bg-cyan-500/10');
+          }
+        });
+        window.addEventListener('drop', (e) => {
+          e.preventDefault();
+          dropZone.classList.remove('border-cyan-400', 'bg-cyan-500/10');
+          if (e.dataTransfer.files) {
+            this.handleFiles(Array.from(e.dataTransfer.files));
+          }
+        });
+
+        // File Input Trigger
+        document.getElementById('file-upload').onchange = (e) => {
+          this.handleFiles(Array.from(e.target.files));
+        };
+
+        // Search Input
+        document.getElementById('library-search').oninput = () => {
+          this.renderLibraryShelf();
+        };
+
+        // Format Filter Pills
+        document.querySelectorAll('.format-pill').forEach(btn => {
+          btn.onclick = () => {
+            document.querySelectorAll('.format-pill').forEach(b => {
+              b.classList.remove('active', 'border-sky-400/50', 'bg-sky-500/20', 'text-sky-300');
+              b.classList.add('opacity-70');
+            });
+            btn.classList.add('active', 'border-sky-400/50', 'bg-sky-500/20', 'text-sky-300');
+            btn.classList.remove('opacity-70');
+            this.currentFilter = btn.dataset.filter;
+            this.renderLibraryShelf();
+          };
+        });
+
+        // Close Reader
+        document.getElementById('btn-close-reader').onclick = () => this.closeReader();
+
+        // Tap Navigation Zones
+        document.getElementById('turn-zone-left').onclick = () => this.prevPage();
+        document.getElementById('turn-zone-right').onclick = () => this.nextPage();
+        document.getElementById('turn-zone-center').onclick = () => this.toggleControls();
+
+        // Page buttons
+        document.getElementById('btn-prev-page').onclick = () => this.prevPage();
+        document.getElementById('btn-next-page').onclick = () => this.nextPage();
+
+        // Reader Scrub Slider
+        const scrubber = document.getElementById('reader-scrubber');
+        scrubber.oninput = (e) => {
+          if (!this.activeBook) return;
+          this.activeBook.currentPage = parseInt(e.target.value, 10);
+          this.onPageChanged();
+        };
+
+        // Keyboard Shortcuts
+        window.addEventListener('keydown', (e) => {
+          if (!this.activeBook) return;
+          if (e.key === 'ArrowRight' || e.key === 'PageDown' || e.key === ' ') {
+            e.preventDefault();
+            this.nextPage();
+          } else if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
+            e.preventDefault();
+            this.prevPage();
+          } else if (e.key === 'Escape') {
+            this.closeAllDrawers();
+          } else if (e.key === 'f' || e.key === 'F') {
+            this.toggleFullscreen();
+          }
+        });
+
+        // Fullscreen Toggle
+        document.getElementById('btn-toggle-fullscreen').onclick = () => this.toggleFullscreen();
+
+        // Modals & Drawers Toggles
+        document.getElementById('btn-toggle-filters').onclick = () => this.toggleModal('modal-filters', true);
+        document.getElementById('btn-close-filters').onclick = () => this.toggleModal('modal-filters', false);
+
+        document.getElementById('btn-toggle-typography').onclick = () => this.toggleModal('drawer-typography', true);
+        document.getElementById('btn-close-typography').onclick = () => this.toggleModal('drawer-typography', false);
+
+        document.getElementById('btn-comic-layout').onclick = () => this.toggleModal('drawer-comic-layout', true);
+        document.getElementById('btn-close-comic-layout').onclick = () => this.toggleModal('drawer-comic-layout', false);
+
+        document.getElementById('btn-open-stats').onclick = () => this.openStatsModal();
+        document.getElementById('btn-close-stats').onclick = () => this.toggleModal('modal-stats', false);
+
+        document.getElementById('btn-new-folder').onclick = () => this.toggleModal('modal-folder', true);
+        document.getElementById('btn-cancel-folder').onclick = () => this.toggleModal('modal-folder', false);
+        document.getElementById('btn-save-folder').onclick = () => this.createFolder();
+
+        document.getElementById('btn-restore-samples').onclick = async () => {
+          await this.seedDefaultLibrary();
+          this.renderCollectionsBar();
+          this.renderLibraryShelf();
+        };
+
+        // Filter Controls
+        document.getElementById('slider-warmth').oninput = (e) => {
+          this.readingSettings.warmth = parseInt(e.target.value, 10);
+          document.getElementById('warmth-val').textContent = `${this.readingSettings.warmth}%`;
+          this.applyDisplayFilters();
+          this.saveSettings();
+        };
+        document.getElementById('slider-brightness').oninput = (e) => {
+          this.readingSettings.brightness = parseInt(e.target.value, 10);
+          document.getElementById('brightness-val').textContent = `${this.readingSettings.brightness}%`;
+          this.applyDisplayFilters();
+          this.saveSettings();
+        };
+        document.getElementById('slider-contrast').oninput = (e) => {
+          this.readingSettings.contrast = parseInt(e.target.value, 10);
+          document.getElementById('contrast-val').textContent = `${this.readingSettings.contrast}%`;
+          this.applyDisplayFilters();
+          this.saveSettings();
+        };
+        document.getElementById('toggle-invert-colors').onchange = (e) => {
+          this.readingSettings.invert = e.target.checked;
+          this.applyDisplayFilters();
+          this.saveSettings();
+        };
+
+        // Theme Pickers
+        document.querySelectorAll('.theme-selector-btn').forEach(btn => {
+          btn.onclick = () => {
+            this.applyTheme(btn.dataset.theme);
+          };
+        });
+
+        // Font Family Pickers
+        document.querySelectorAll('.font-btn').forEach(btn => {
+          btn.onclick = () => {
+            document.querySelectorAll('.font-btn').forEach(b => b.classList.remove('active', 'border-sky-400'));
+            btn.classList.add('active', 'border-sky-400');
+            this.readingSettings.font = btn.dataset.font;
+            this.applyTypographyStyles();
+            this.saveSettings();
+          };
+        });
+
+        // Font Size Slider
+        document.getElementById('slider-font-size').oninput = (e) => {
+          this.readingSettings.fontSize = parseInt(e.target.value, 10);
+          document.getElementById('font-size-val').textContent = `${this.readingSettings.fontSize}px`;
+          this.applyTypographyStyles();
+          this.saveSettings();
+        };
+
+        // Line Height Slider
+        document.getElementById('slider-line-height').oninput = (e) => {
+          this.readingSettings.lineHeight = parseFloat(e.target.value);
+          this.applyTypographyStyles();
+          this.saveSettings();
+        };
+
+        // Margins Picker
+        document.querySelectorAll('.margin-btn').forEach(btn => {
+          btn.onclick = () => {
+            document.querySelectorAll('.margin-btn').forEach(b => b.classList.remove('active', 'bg-white/20'));
+            btn.classList.add('active', 'bg-white/20');
+            this.readingSettings.margin = btn.dataset.margin;
+            this.applyTypographyStyles();
+            this.saveSettings();
+          };
+        });
+
+        // Alignment Pickers
+        document.querySelectorAll('.align-btn').forEach(btn => {
+          btn.onclick = () => {
+            document.querySelectorAll('.align-btn').forEach(b => b.classList.remove('active', 'bg-white/20'));
+            btn.classList.add('active', 'bg-white/20');
+            this.readingSettings.align = btn.dataset.align;
+            this.applyTypographyStyles();
+            this.saveSettings();
+          };
+        });
+
+        // Comic Mode Buttons
+        document.querySelectorAll('.comic-mode-btn').forEach(btn => {
+          btn.onclick = () => {
+            document.querySelectorAll('.comic-mode-btn').forEach(b => {
+              b.classList.remove('active', 'border-sky-400/60', 'bg-sky-500/10');
+            });
+            btn.classList.add('active', 'border-sky-400/60', 'bg-sky-500/10');
+            this.readingSettings.comicMode = btn.dataset.comicMode;
+            this.renderComicPage();
+            this.saveSettings();
+          };
+        });
+
+        // Comic Fit Strategy Buttons
+        document.querySelectorAll('.comic-fit-btn').forEach(btn => {
+          btn.onclick = () => {
+            document.querySelectorAll('.comic-fit-btn').forEach(b => b.classList.remove('active', 'bg-white/20'));
+            btn.classList.add('active', 'bg-white/20');
+            this.readingSettings.comicFit = btn.dataset.fit;
+            this.renderComicPage();
+            this.saveSettings();
+          };
+        });
+
+        // TOC Drawer
+        document.getElementById('btn-toggle-toc').onclick = () => this.openTOC();
+        document.getElementById('btn-close-toc').onclick = () => this.toggleModal('drawer-toc', false);
+
+        // Annotations & Bookmarks Drawer
+        document.getElementById('btn-toggle-annotations').onclick = () => this.openAnnotationsDrawer();
+        document.getElementById('btn-close-annotations').onclick = () => this.toggleModal('drawer-annotations', false);
+        document.getElementById('btn-quick-bookmark').onclick = () => this.toggleBookmarkCurrentPage();
+
+        // Text Selection Highlighting Popover
+        document.getElementById('text-engine-container').onmouseup = (e) => this.handleTextSelection(e);
+        document.querySelectorAll('#selection-popover [data-color]').forEach(btn => {
+          btn.onclick = () => this.applyHighlightSelection(btn.dataset.color);
+        });
+
+        // Export Notes
+        document.getElementById('btn-export-notes').onclick = () => this.exportAnnotations();
+      }
+
+      toggleModal(modalId, show) {
+        const el = document.getElementById(modalId);
+        if (show) {
+          el.classList.remove('hidden');
+        } else {
+          el.classList.add('hidden');
+        }
+      }
+
+      closeAllDrawers() {
+        ['drawer-toc', 'drawer-annotations', 'drawer-typography', 'drawer-comic-layout', 'modal-filters', 'modal-stats', 'modal-folder'].forEach(id => {
+          this.toggleModal(id, false);
+        });
+      }
+
+      toggleFullscreen() {
+        if (!document.fullscreenElement) {
+          document.documentElement.requestFullscreen().catch(() => {});
+        } else {
+          document.exitFullscreen().catch(() => {});
+        }
+      }
+
+      createFolder() {
+        const nameInput = document.getElementById('input-folder-name');
+        const name = nameInput.value.trim();
+        if (name) {
+          this.collections.add(name);
+          nameInput.value = '';
+          this.toggleModal('modal-folder', false);
+          this.renderCollectionsBar();
+          this.showToast(`Collection "${name}" ready!`, "info");
+        }
+      }
+
+      /* --- TABLE OF CONTENTS --- */
+      openTOC() {
+        if (!this.activeBook) return;
+        const container = document.getElementById('toc-list-items');
+        container.innerHTML = '';
+
+        const toc = this.activeBook.toc || [];
+        if (toc.length === 0) {
+          container.innerHTML = `<div class="p-4 text-center opacity-50 text-xs">No explicit chapters found for this title.</div>`;
+        } else {
+          toc.forEach((item, index) => {
+            const btn = document.createElement('button');
+            btn.className = "w-full text-left p-3 rounded-xl glass-panel hover:bg-white/10 text-xs sm:text-sm font-medium flex items-center justify-between transition";
+            btn.innerHTML = `
+              <span class="truncate pr-2">${item.title}</span>
+              <i data-lucide="chevron-right" class="w-4 h-4 opacity-40 shrink-0"></i>
+            `;
+            btn.onclick = () => {
+              this.toggleModal('drawer-toc', false);
+              if (item.anchor) {
+                const target = document.getElementById(item.anchor);
+                if (target) {
+                  target.scrollIntoView({ behavior: 'smooth' });
+                }
+              }
+            };
+            container.appendChild(btn);
+          });
+          lucide.createIcons({ root: container });
+        }
+
+        this.toggleModal('drawer-toc', true);
+      }
+
+      /* --- ANNOTATIONS & HIGHLIGHTS ENGINE --- */
+      async toggleBookmarkCurrentPage() {
+        if (!this.activeBook) return;
+        const curPage = this.activeBook.currentPage || 1;
+        const annotations = await auraDB.getAnnotations(this.activeBook.id);
+        const existing = annotations.find(a => a.type === 'bookmark' && a.page === curPage);
+
+        if (existing) {
+          await auraDB.deleteAnnotation(existing.id);
+          this.showToast(`Bookmark for page ${curPage} removed.`, "info");
+        } else {
+          const newBookmark = {
+            id: 'bm_' + Date.now(),
+            bookId: this.activeBook.id,
+            type: 'bookmark',
+            page: curPage,
+            title: `Bookmark at Page ${curPage}`,
+            createdAt: Date.now()
+          };
+          await auraDB.saveAnnotation(newBookmark);
+          this.showToast(`Page ${curPage} bookmarked!`, "info");
+        }
+        this.updateBookmarkActiveState();
+      }
+
+      async openAnnotationsDrawer() {
+        if (!this.activeBook) return;
+        const container = document.getElementById('annotations-list-items');
+        container.innerHTML = '';
+
+        const items = await auraDB.getAnnotations(this.activeBook.id);
+        if (items.length === 0) {
+          container.innerHTML = `<div class="p-6 text-center opacity-50 text-xs">No bookmarks or highlights recorded yet. Select text or tap the bookmark icon.</div>`;
+        } else {
+          items.forEach(ann => {
+            const card = document.createElement('div');
+            card.className = "glass-panel p-3 rounded-xl flex flex-col gap-1.5 text-xs border border-white/10";
+            
+            if (ann.type === 'bookmark') {
+              card.innerHTML = `
+                <div class="flex items-center justify-between">
+                  <span class="font-semibold flex items-center gap-1 text-ios-yellow">
+                    <i data-lucide="bookmark" class="w-3.5 h-3.5"></i>
+                    Page ${ann.page}
+                  </span>
+                  <button class="btn-del-ann text-red-300 hover:text-red-400 p-1"><i data-lucide="trash" class="w-3.5 h-3.5"></i></button>
+                </div>
+                <div class="opacity-60 text-[10px]">${new Date(ann.createdAt).toLocaleDateString()}</div>
+              `;
+            } else {
+              card.innerHTML = `
+                <div class="flex items-center justify-between">
+                  <span class="font-semibold text-sky-300">Highlight (${ann.color})</span>
+                  <button class="btn-del-ann text-red-300 hover:text-red-400 p-1"><i data-lucide="trash" class="w-3.5 h-3.5"></i></button>
+                </div>
+                <p class="italic opacity-80 border-l-2 border-white/30 pl-2 my-1">"${ann.text}"</p>
+                ${ann.note ? `<div class="font-sans text-[11px] text-white/90 bg-white/10 p-1.5 rounded-lg">Note: ${ann.note}</div>` : ''}
+              `;
+            }
+
+            card.querySelector('.btn-del-ann').onclick = async () => {
+              await auraDB.deleteAnnotation(ann.id);
+              this.openAnnotationsDrawer();
+              this.updateBookmarkActiveState();
+            };
+
+            container.appendChild(card);
+          });
+          lucide.createIcons({ root: container });
+        }
+
+        this.toggleModal('drawer-annotations', true);
+      }
+
+      handleTextSelection(e) {
+        const selection = window.getSelection();
+        const text = selection.toString().trim();
+        const popover = document.getElementById('selection-popover');
+
+        if (text.length > 2) {
+          const range = selection.getRangeAt(0);
+          const rect = range.getBoundingClientRect();
+          popover.style.left = `${rect.left + rect.width / 2}px`;
+          popover.style.top = `${rect.top - 8}px`;
+          popover.classList.remove('hidden');
+          this.pendingSelection = { text, range };
+        } else {
+          popover.classList.add('hidden');
+          this.pendingSelection = null;
+        }
+      }
+
+      async applyHighlightSelection(color) {
+        if (!this.pendingSelection || !this.activeBook) return;
+        const { text } = this.pendingSelection;
+
+        const newHighlight = {
+          id: 'hl_' + Date.now(),
+          bookId: this.activeBook.id,
+          type: 'highlight',
+          color: color,
+          text: text,
+          page: this.activeBook.currentPage || 1,
+          createdAt: Date.now()
+        };
+
+        await auraDB.saveAnnotation(newHighlight);
+        document.getElementById('selection-popover').classList.add('hidden');
+        window.getSelection().removeAllRanges();
+        this.showToast(`Passage highlighted in ${color}!`, "info");
+      }
+
+      async exportAnnotations() {
+        if (!this.activeBook) return;
+        const items = await auraDB.getAnnotations(this.activeBook.id);
+        if (items.length === 0) {
+          this.showToast("No annotations to export.", "info");
+          return;
+        }
+
+        let markdown = `# Reading Notes: ${this.activeBook.title}\n`;
+        markdown += `Author: ${this.activeBook.author || 'Unknown'}\n`;
+        markdown += `Exported from Aura Reader on: ${new Date().toLocaleString()}\n\n---\n\n`;
+
+        items.forEach(item => {
+          if (item.type === 'bookmark') {
+            markdown += `### Bookmark\n- **Page ${item.page}** (${new Date(item.createdAt).toLocaleDateString()})\n\n`;
+          } else {
+            markdown += `### Highlight (${item.color.toUpperCase()})\n> "${item.text}"\n\n`;
+            if (item.note) markdown += `*Note:* ${item.note}\n\n`;
+          }
+        });
+
+        const blob = new Blob([markdown], { type: 'text/markdown;charset=utf-8' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `Aura_Annotations_${Date.now()}.${format}`;
+        a.download = `${this.activeBook.title}_Notes.md`;
         a.click();
-      };
-
-      // Filtered Books for Library
-      const filteredBooks = useMemo(() => {
-        return books.filter(b => {
-          const matchesFolder = 
-            selectedFolder === 'all' ? true :
-            selectedFolder === 'ebooks' ? b.type === 'ebook' :
-            selectedFolder === 'comics' ? b.type === 'comic' :
-            b.folderId === selectedFolder;
-          const matchesSearch = b.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                                (b.author && b.author.toLowerCase().includes(searchQuery.toLowerCase()));
-          return matchesFolder && matchesSearch;
-        });
-      }, [books, selectedFolder, searchQuery]);
-
-      // Dynamic Theme Color Mapping
-      const themeColors = {
-        midnight: { bg: 'bg-[#0a0f1d]', text: 'text-slate-100', panel: 'glass-panel-dark' },
-        trueblack: { bg: 'bg-black', text: 'text-neutral-100', panel: 'glass-panel-dark' },
-        sepia: { bg: 'bg-[#f6ebd7]', text: 'text-[#443224]', panel: 'bg-[#ede0ca]/80 border-[#d5c3a5]' },
-        paper: { bg: 'bg-[#fcfbf9]', text: 'text-[#1c1917]', panel: 'bg-white/80 border-stone-200' },
-        softmint: { bg: 'bg-[#eef7f2]', text: 'text-[#133e2a]', panel: 'bg-[#e0f0e7]/80 border-[#c4e2d1]' }
-      };
-
-      const currentThemeStyle = themeColors[theme] || themeColors.midnight;
-
-      // ==========================================
-      // VIEW: LIBRARY SCREEN
-      // ==========================================
-      if (!activeBookId) {
-        return (
-          <div className="flex h-screen w-screen overflow-hidden bg-gradient-to-br from-[#07090e] via-[#0d111d] to-[#141b2d] text-slate-100 font-sans-ui">
-            
-            {/* Sidebar Navigation (Foldables, Tablets, Desktops) */}
-            <aside className="w-64 border-r border-white/10 glass-panel-dark flex flex-col justify-between hidden md:flex z-10">
-              <div className="p-6">
-                <div className="flex items-center space-x-3 mb-8">
-                  <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-sky-500 to-indigo-500 flex items-center justify-center shadow-lg shadow-sky-500/30">
-                    <Icon name="book" className="w-5 h-5 text-white" />
-                  </div>
-                  <div>
-                    <h1 className="font-bold text-lg tracking-tight text-white">Aura Reader</h1>
-                    <p className="text-[10px] text-sky-400 font-medium uppercase tracking-widest">Universal Engine</p>
-                  </div>
-                </div>
-
-                {/* Library Folders */}
-                <div className="space-y-1">
-                  <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider px-3 mb-2 flex justify-between items-center">
-                    <span>Collections</span>
-                    <button onClick={() => setShowNewFolderModal(true)} className="hover:text-white transition">
-                      <Icon name="plus" className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                  {folders.map(f => (
-                    <button
-                      key={f.id}
-                      onClick={() => setSelectedFolder(f.id)}
-                      className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium transition ${ selectedFolder === f.id ? 'bg-white/15 text-white shadow-sm border border-white/15' : 'text-slate-400 hover:text-slate-200 hover:bg-white/5' }`} > <div className="flex items-center space-x-3"> <Icon name={f.id === 'comics' ? 'comic' : f.id === 'ebooks' ? 'book' : 'folder'} className="w-4 h-4 opacity-70" /> <span>{f.name}</span> </div> <span className="text-xs text-slate-500"> {books.filter(b => f.id === 'all' \vert{}\vert{} (f.id === 'ebooks' ? b.type === 'ebook' : f.id === 'comics' ? b.type === 'comic' : b.folderId === f.id)).length} </span> </button> ))} </div> </div>  {/* Sidebar Footer Stats Trigger */} <div className="p-4 border-t border-white/10 space-y-2"> <button onClick={() => setShowStatsModal(true)} className="w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-sm font-medium text-slate-300 hover:bg-white/5 transition" > <Icon name="stats" className="w-4 h-4 text-sky-400" /> <span>Reading Statistics</span> </button> <div className="text-[11px] text-slate-500 px-3 flex items-center justify-between"> <span>Zero Network Calls</span> <span className="text-emerald-400 font-mono">100\% Local</span> </div> </div> </aside>  {/* Main Content Area */} <main className="flex-1 flex flex-col h-full overflow-hidden"> {/* Top Navigation Bar */} <header className="h-20 border-b border-white/10 glass-panel-dark px-6 flex items-center justify-between z-10"> <div className="flex items-center space-x-4 flex-1 max-w-lg"> <div className="relative w-full"> <Icon name="search" className="w-4 h-4 absolute left-3.5 top-3.5 text-slate-400" /> <input type="text" placeholder="Search title, author, or keyword..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-2xl pl-10 pr-4 py-2 text-sm text-white placeholder-slate-400 focus:outline-none focus:border-sky-500/50 focus:ring-2 focus:ring-sky-500/20 transition" /> </div> </div>  <div className="flex items-center space-x-3"> <label className="flex items-center space-x-2 px-4 py-2 rounded-2xl bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white font-medium text-sm shadow-lg shadow-sky-500/25 cursor-pointer transition active:scale-95"> <Icon name="upload" className="w-4 h-4" /> <span>Import Files</span> <input type="file" multiple onChange={handleFileUpload} className="hidden" accept=".epub,.cbz,.zip,.pdf,.txt,.md,.rtf,.html,.htm,.fb2,.mobi,.azw3" /> </label> </div> </header>  {/* Book Grid */} <div className="flex-1 overflow-y-auto p-6 md:p-8"> <div className="flex items-center justify-between mb-6"> <div> <h2 className="text-xl font-bold tracking-tight text-white">Your Library</h2> <p className="text-xs text-slate-400 mt-0.5">Non-destructive client storage (IndexedDB)</p> </div> <span className="text-xs text-slate-400 font-medium"> {filteredBooks.length} {filteredBooks.length === 1 ? 'item' : 'items'} </span> </div>  {filteredBooks.length === 0 ? ( <div className="h-96 flex flex-col items-center justify-center text-center p-6 border-2 border-dashed border-white/10 rounded-3xl"> <Icon name="book" className="w-12 h-12 text-slate-600 mb-4" /> <p className="text-base font-medium text-slate-300">No books found in this folder</p> <p className="text-xs text-slate-500 max-w-sm mt-1 mb-6"> Drag & drop your .epub, .cbz, .pdf, or .txt files anywhere or import them directly. </p> </div> ) : ( <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-5"> {filteredBooks.map((book) => ( <div key={book.id} onClick={() => setActiveBookId(book.id)} className="group relative flex flex-col rounded-3xl p-3 glass-panel hover:bg-white/15 transition-all duration-300 cursor-pointer hover:-translate-y-1 hover:shadow-2xl hover:shadow-black/50" > {/* Book Cover Container */} <div className="relative aspect-[3/4.2] w-full rounded-2xl overflow-hidden mb-3.5 shadow-md flex items-center justify-center"> {book.type === 'comic' ? ( <div className="w-full h-full flex flex-col justify-between p-4 text-white" style={{ background: book.pages?.[0]?.svgBg \vert{}\vert{} 'linear-gradient(135deg, #18181b 0\%, #312e81 100\%)' }} > <span className="text-[10px] tracking-wider uppercase font-mono px-2 py-0.5 rounded-full bg-white/20 self-start backdrop-blur-md"> {book.format} </span> <div> <h3 className="font-bold text-sm tracking-tight leading-snug line-clamp-2">{book.title}</h3> <p className="text-[11px] text-slate-300 mt-1">{book.author}</p> </div> </div> ) : ( <div className="w-full h-full bg-gradient-to-br from-stone-900 via-neutral-900 to-stone-950 p-4 flex flex-col justify-between border border-white/10"> <span className="text-[10px] tracking-wider uppercase font-mono px-2 py-0.5 rounded-full bg-sky-500/20 text-sky-300 self-start border border-sky-400/30"> {book.format} </span> <div className="space-y-1"> <h3 className="font-serif-book font-bold text-sm text-stone-100 line-clamp-3">{book.title}</h3> <p className="text-[11px] text-stone-400">{book.author}</p> </div> <div className="w-6 h-0.5 bg-sky-500/50 rounded-full" /> </div> )}  {/* Quick Delete Floating Badge */} <button onClick={(e) => handleDeleteBook(book.id, e)} className="absolute top-2 right-2 p-1.5 rounded-full bg-black/60 text-slate-400 hover:text-rose-400 opacity-0 group-hover:opacity-100 transition backdrop-blur-md" > <Icon name="trash" className="w-3.5 h-3.5" /> </button> </div>  {/* Title & Progress Bar */} <div className="px-1"> <h4 className="text-xs font-semibold text-white truncate">{book.title}</h4> <p className="text-[11px] text-slate-400 truncate mt-0.5">{book.author}</p> <div className="w-full bg-white/10 h-1.5 rounded-full mt-2.5 overflow-hidden"> <div className="bg-sky-400 h-full rounded-full transition-all" style={{ width: `${Math.round(((book.currentPage + 1) / book.totalPages) * 100)}%` }}
-                            />
-                          </div>
-                          <div className="flex justify-between items-center text-[10px] text-slate-400 mt-1 font-mono">
-                            <span>p. {book.currentPage + 1}/{book.totalPages}</span>
-                            <span>{Math.round(((book.currentPage + 1) / book.totalPages) * 100)}%</span>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </main>
-
-            {/* Modal: New Folder */}
-            {showNewFolderModal && (
-              <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md">
-                <div className="w-full max-w-sm rounded-3xl glass-panel-dark p-6 border border-white/20 shadow-2xl">
-                  <h3 className="text-base font-bold text-white mb-2">Create Library Folder</h3>
-                  <p className="text-xs text-slate-400 mb-4">Non-destructively organize your books inside the browser.</p>
-                  <input
-                    type="text"
-                    placeholder="Folder name..."
-                    value={newFolderName}
-                    onChange={(e) => setNewFolderName(e.target.value)}
-                    className="w-full bg-white/5 border border-white/15 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-sky-500 mb-4"
-                  />
-                  <div className="flex space-x-2">
-                    <button
-                      onClick={() => setShowNewFolderModal(false)}
-                      className="flex-1 px-4 py-2 rounded-xl text-xs font-medium text-slate-400 hover:text-white bg-white/5"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      onClick={handleCreateFolder}
-                      className="flex-1 px-4 py-2 rounded-xl text-xs font-medium text-white bg-sky-500 hover:bg-sky-400 font-semibold"
-                    >
-                      Save Folder
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Modal: Reading Statistics */}
-            {showStatsModal && (
-              <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md">
-                <div className="w-full max-w-md rounded-3xl glass-panel-dark p-6 border border-white/20 shadow-2xl">
-                  <div className="flex justify-between items-center mb-5">
-                    <div className="flex items-center space-x-2.5">
-                      <Icon name="stats" className="w-5 h-5 text-sky-400" />
-                      <h3 className="text-base font-bold text-white">Reading Statistics</h3>
-                    </div>
-                    <button onClick={() => setShowStatsModal(false)} className="text-slate-400 hover:text-white">
-                      <Icon name="x" className="w-4 h-4" />
-                    </button>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3 mb-5">
-                    <div className="p-4 rounded-2xl bg-white/5 border border-white/10">
-                      <span className="text-[10px] text-slate-400 font-mono uppercase">Total Read Time</span>
-                      <p className="text-xl font-bold text-white mt-1">
-                        {Math.floor(stats.totalSeconds / 60)} <span className="text-xs text-slate-400 font-normal">mins</span>
-                      </p>
-                    </div>
-                    <div className="p-4 rounded-2xl bg-white/5 border border-white/10">
-                      <span className="text-[10px] text-slate-400 font-mono uppercase">Pages Turned</span>
-                      <p className="text-xl font-bold text-white mt-1">{stats.pagesTurned}</p>
-                    </div>
-                    <div className="p-4 rounded-2xl bg-white/5 border border-white/10">
-                      <span className="text-[10px] text-slate-400 font-mono uppercase">Books In Library</span>
-                      <p className="text-xl font-bold text-white mt-1">{books.length}</p>
-                    </div>
-                    <div className="p-4 rounded-2xl bg-white/5 border border-white/10">
-                      <span className="text-[10px] text-slate-400 font-mono uppercase">Storage Mode</span>
-                      <p className="text-sm font-semibold text-emerald-400 mt-2 font-mono">IndexedDB</p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => setShowStatsModal(false)}
-                    className="w-full py-2.5 rounded-xl bg-white/10 hover:bg-white/15 text-xs font-semibold text-white"
-                  >
-                    Close Dashboard
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        );
+        URL.revokeObjectURL(url);
+        this.showToast("Annotations exported as Markdown!", "info");
       }
 
-      // ==========================================
-      // VIEW: ACTIVE READER SCREEN (E-BOOK & COMIC)
-      // ==========================================
-      const fontClassMap = {
-        serif: 'font-serif-book',
-        sans: 'font-sans-ui',
-        dyslexic: 'font-dyslexic',
-        mono: 'font-mono-code'
-      };
+      /* --- READING STATS DASHBOARD --- */
+      openStatsModal() {
+        const totalBooks = this.books.length;
+        const totalPages = this.books.reduce((acc, b) => acc + (b.currentPage || 0), 0) + this.sessionPagesTurned;
+        const totalMinutes = Math.round(this.sessionSeconds / 60);
 
-      const marginClassMap = {
-        compact: 'max-w-xl px-4',
-        normal: 'max-w-2xl px-6',
-        wide: 'max-w-4xl px-8'
-      };
+        document.getElementById('stat-books-count').textContent = totalBooks;
+        document.getElementById('stat-total-pages').textContent = totalPages;
+        document.getElementById('stat-reading-time').textContent = `${totalMinutes}m`;
+        document.getElementById('stat-avg-speed').textContent = '245';
 
-      return (
-        <div
-          className={`relative h-screen w-screen overflow-hidden flex flex-col transition-colors duration-300 ${currentThemeStyle.bg}${currentThemeStyle.text}`}
-          style={{
-            filter: `brightness(${brightness}\%) contrast(${contrast}%) ${nightInvert ? 'invert(1) hue-rotate(180deg)' : ''}` }} > {/* Amber Warmth Blue-Light Filter Overlay */} <div className="pointer-events-none fixed inset-0 z-40 transition-opacity" style={{ backgroundColor: '#ff9800', opacity: warmth / 250, mixBlendMode: 'multiply' }} />  {/* Top Floating Glass Header Bar */} <header className="h-16 px-4 md:px-6 flex items-center justify-between border-b border-black/10 dark:border-white/10 glass-panel-dark z-30 select-none"> <div className="flex items-center space-x-3"> <button onClick={() => setActiveBookId(null)} className="p-2 rounded-xl hover:bg-white/10 transition active:scale-95" title="Return to Library" > <Icon name="chevronLeft" className="w-5 h-5" /> </button> <div className="max-w-[200px] sm:max-w-xs truncate"> <h2 className="text-xs font-bold truncate">{activeBook.title}</h2> <p className="text-[10px] opacity-70 truncate">{activeBook.author}</p> </div> </div>  <div className="flex items-center space-x-1.5 md:space-x-2"> <button onClick={() => setShowTOCModal(true)} className="p-2 rounded-xl hover:bg-white/10 transition" title="Table of Contents" > <Icon name="toc" className="w-4 h-4" /> </button>  <button onClick={handleAddBookmark} className="p-2 rounded-xl hover:bg-white/10 transition" title="Bookmark Page" > <Icon name={activeBook.isBookmarked ? 'bookmarkActive' : 'bookmark'} className={`w-4 h-4 ${activeBook.isBookmarked ? 'text-amber-400' : ''}`} />
-              </button>
-
-              <button
-                onClick={() => setShowAnnotationsModal(true)}
-                className="p-2 rounded-xl hover:bg-white/10 transition"
-                title="Annotations & Notes"
-              >
-                <Icon name="highlight" className="w-4 h-4" />
-              </button>
-
-              <button
-                onClick={() => setShowSettingsModal(true)}
-                className="p-2 rounded-xl hover:bg-white/10 transition"
-                title="Reader Controls"
-              >
-                <Icon name="sliders" className="w-4 h-4" />
-              </button>
-            </div>
-          </header>
-
-          {/* Reader Body Area */}
-          <main className="flex-1 relative overflow-hidden flex items-center justify-center">
-            
-            {/* Click-zones for Desktop / Keyboard navigation */}
-            <div
-              onClick={() => handlePageTurn(-1)}
-              className="absolute left-0 top-0 bottom-0 w-20 z-20 cursor-w-resize hover:bg-black/5 dark:hover:bg-white/5 transition flex items-center justify-start pl-4 opacity-0 hover:opacity-100"
-            >
-              <Icon name="chevronLeft" className="w-6 h-6 opacity-60" />
-            </div>
-
-            <div
-              onClick={() => handlePageTurn(1)}
-              className="absolute right-0 top-0 bottom-0 w-20 z-20 cursor-e-resize hover:bg-black/5 dark:hover:bg-white/5 transition flex items-center justify-end pr-4 opacity-0 hover:opacity-100"
-            >
-              <Icon name="chevronRight" className="w-6 h-6 opacity-60" />
-            </div>
-
-            {/* COMIC ENGINE */}
-            {activeBook.type === 'comic' ? (
-              <div className="w-full h-full flex items-center justify-center p-4 select-none overflow-auto">
-                {comicLayout === 'spread' ? (
-                  // Double Page Spread Mode
-                  <div className="flex items-center justify-center space-x-2 max-h-full max-w-full">
-                    {[0, 1].map(offset => {
-                      const pIdx = activeBook.currentPage + offset;
-                      if (pIdx >= activeBook.totalPages) return null;
-                      const page = activeBook.pages?.[pIdx];
-                      return (
-                        <div
-                          key={pIdx}
-                          className="relative aspect-[3/4.2] rounded-2xl shadow-2xl overflow-hidden flex flex-col justify-between p-6 border border-white/10"
-                          style={{
-                            height: comicFit === 'fit-height' ? '82vh' : 'auto',
-                            width: comicFit === 'fit-width' ? '46vw' : 'auto',
-                            background: page?.svgBg || '#1e1b4b'
-                          }}
-                        >
-                          {page?.imageUrl ? (
-                            <img src={page.imageUrl} alt={page.title} className="w-full h-full object-contain" />
-                          ) : (
-                            <>
-                              <span className="text-[11px] font-mono tracking-widest uppercase px-3 py-1 rounded-full bg-white/20 self-start backdrop-blur-md">
-                                {page?.tag || `SPREAD ${pIdx + 1}`} </span> <div> <h2 className="text-xl font-bold tracking-tight text-white mb-2">{page?.subtitle \vert{}\vert{} page?.title}</h2> <p className="text-xs text-slate-300">{page?.caption}</p> </div> <span className="text-[10px] font-mono text-slate-400 self-end">p. {pIdx + 1}</span> </> )} </div> ); })} </div> ) : ( // Single Page Mode <div className="relative aspect-[3/4.2] rounded-3xl shadow-2xl overflow-hidden flex flex-col justify-between p-8 border border-white/10" style={{ height: comicFit === 'fit-height' ? '84vh' : 'auto', width: comicFit === 'fit-width' ? '88vw' : 'auto', background: activeBook.pages?.[activeBook.currentPage]?.svgBg \vert{}\vert{} '#0f172a' }} > {activeBook.pages?.[activeBook.currentPage]?.imageUrl ? ( <img src={activeBook.pages[activeBook.currentPage].imageUrl} alt="Comic Page" className="w-full h-full object-contain" /> ) : ( <> <span className="text-xs font-mono tracking-widest uppercase px-3.5 py-1 rounded-full bg-white/20 self-start backdrop-blur-md"> {activeBook.pages?.[activeBook.currentPage]?.tag \vert{}\vert{} `PAGE ${activeBook.currentPage + 1}`}
-                        </span>
-                        <div>
-                          <h2 className="text-2xl font-bold tracking-tight text-white mb-2">
-                            {activeBook.pages?.[activeBook.currentPage]?.subtitle || activeBook.title}
-                          </h2>
-                          <p className="text-sm text-slate-300">
-                            {activeBook.pages?.[activeBook.currentPage]?.caption}
-                          </p>
-                        </div>
-                        <div className="flex justify-between items-center text-xs font-mono text-slate-400">
-                          <span>{mangaRTL ? 'Mode: RTL Manga' : 'Mode: Standard LTR'}</span>
-                          <span>Page {activeBook.currentPage + 1} of {activeBook.totalPages}</span>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                )}
-              </div>
-            ) : (
-              // E-BOOK REFLOWABLE ENGINE
-              <div
-                className={`w-full h-full overflow-y-auto ${marginClassMap[marginWidth]} mx-auto py-12${fontClassMap[fontFamily]} selectable-text`}
-                onMouseUp={() => {
-                  const sel = window.getSelection().toString().trim();
-                  if (sel.length > 3) setSelectedText(sel);
-                }}
-              >
-                <div className="mb-8 border-b border-black/10 dark:border-white/10 pb-4">
-                  <span className="text-xs uppercase font-mono tracking-wider opacity-60">
-                    Chapter {activeBook.currentPage + 1} of {activeBook.totalPages}
-                  </span>
-                  <h1 className="text-2xl md:text-3xl font-bold tracking-tight mt-1">
-                    {activeBook.chapters?.[activeBook.currentPage]?.title || 'Section ' + (activeBook.currentPage + 1)}
-                  </h1>
-                </div>
-
-                <div
-                  className="space-y-6"
-                  style={{
-                    fontSize: `${fontSize}px`, lineHeight: lineHeight, letterSpacing: `${letterSpacing}px`,
-                    textAlign: textAlign
-                  }}
-                >
-                  {(activeBook.chapters?.[activeBook.currentPage]?.content || 'Empty chapter content')
-                    .split('\n\n')
-                    .map((paragraph, idx) => (
-                      <p key={idx} className="leading-relaxed">
-                        {paragraph}
-                      </p>
-                    ))}
-                </div>
-
-                {/* Highlight Selection Floating Popover */}
-                {selectedText && (
-                  <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 glass-panel-dark px-4 py-2.5 rounded-2xl flex items-center space-x-3 shadow-2xl border border-white/20">
-                    <span className="text-xs text-slate-300 font-medium">Highlight:</span>
-                    {['#fbbf24', '#38bdf8', '#f43f5e', '#4ade80'].map((color) => (
-                      <button
-                        key={color}
-                        onClick={() => handleAddHighlight(color)}
-                        className="w-5 h-5 rounded-full border border-white/40 transition transform active:scale-90"
-                        style={{ backgroundColor: color }}
-                      />
-                    ))}
-                    <button
-                      onClick={() => setSelectedText('')}
-                      className="text-xs text-slate-400 hover:text-white pl-2"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
-          </main>
-
-          {/* Bottom Floating Glass Navigation Dock */}
-          <footer className="h-14 px-6 flex items-center justify-between border-t border-black/10 dark:border-white/10 glass-panel-dark z-30 select-none text-xs">
-            <button
-              onClick={() => handlePageTurn(-1)}
-              className="flex items-center space-x-1 opacity-70 hover:opacity-100 transition"
-            >
-              <Icon name="chevronLeft" className="w-4 h-4" />
-              <span className="hidden sm:inline">Previous</span>
-            </button>
-
-            <div className="flex items-center space-x-3">
-              <input
-                type="range"
-                min="0"
-                max={activeBook.totalPages - 1}
-                value={activeBook.currentPage}
-                onChange={(e) => {
-                  const p = parseInt(e.target.value);
-                  const updated = { ...activeBook, currentPage: p };
-                  setBooks(prev => prev.map(b => b.id === activeBook.id ? updated : b));
-                  dbPut('books', updated);
-                }}
-                className="w-32 sm:w-48 accent-sky-500 cursor-pointer"
-              />
-              <span className="font-mono text-[11px] opacity-80">
-                {activeBook.currentPage + 1} / {activeBook.totalPages}
-              </span>
-            </div>
-
-            <button
-              onClick={() => handlePageTurn(1)}
-              className="flex items-center space-x-1 opacity-70 hover:opacity-100 transition"
-            >
-              <span className="hidden sm:inline">Next</span>
-              <Icon name="chevronRight" className="w-4 h-4" />
-            </button>
-          </footer>
-
-          {/* Modal: Table of Contents */}
-          {showTOCModal && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md">
-              <div className="w-full max-w-md rounded-3xl glass-panel-dark p-6 border border-white/20 shadow-2xl flex flex-col max-h-[80vh]">
-                <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-base font-bold text-white">Table of Contents</h3>
-                  <button onClick={() => setShowTOCModal(false)} className="text-slate-400 hover:text-white">
-                    <Icon name="x" className="w-4 h-4" />
-                  </button>
-                </div>
-                <div className="flex-1 overflow-y-auto space-y-2 pr-1">
-                  {(activeBook.type === 'comic' ? activeBook.pages : activeBook.chapters)?.map((item, idx) => (
-                    <button
-                      key={idx}
-                      onClick={() => {
-                        const updated = { ...activeBook, currentPage: idx };
-                        setBooks(prev => prev.map(b => b.id === activeBook.id ? updated : b));
-                        dbPut('books', updated);
-                        setShowTOCModal(false);
-                      }}
-                      className={`w-full text-left px-4 py-3 rounded-xl text-sm transition flex justify-between items-center ${ activeBook.currentPage === idx ? 'bg-sky-500/20 text-sky-300 font-semibold border border-sky-400/30' : 'text-slate-300 hover:bg-white/5' }`} > <span className="truncate">{item.title \vert{}\vert{} `Section ${idx + 1}`}</span>
-                      <span className="text-xs font-mono opacity-60 ml-2">{idx + 1}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Modal: Annotations & Highlights */}
-          {showAnnotationsModal && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md">
-              <div className="w-full max-w-lg rounded-3xl glass-panel-dark p-6 border border-white/20 shadow-2xl flex flex-col max-h-[80vh]">
-                <div className="flex justify-between items-center mb-4">
-                  <div>
-                    <h3 className="text-base font-bold text-white">Annotations & Notes</h3>
-                    <p className="text-xs text-slate-400">Client-stored bookmarks and highlights</p>
-                  </div>
-                  <button onClick={() => setShowAnnotationsModal(false)} className="text-slate-400 hover:text-white">
-                    <Icon name="x" className="w-4 h-4" />
-                  </button>
-                </div>
-
-                <div className="flex space-x-2 mb-4">
-                  <button
-                    onClick={() => exportAnnotations('md')}
-                    className="flex-1 py-1.5 rounded-lg bg-white/10 hover:bg-white/15 text-xs text-white font-medium"
-                  >
-                    Export as Markdown
-                  </button>
-                  <button
-                    onClick={() => exportAnnotations('json')}
-                    className="flex-1 py-1.5 rounded-lg bg-white/10 hover:bg-white/15 text-xs text-white font-medium"
-                  >
-                    Export as JSON
-                  </button>
-                </div>
-
-                <div className="flex-1 overflow-y-auto space-y-3 pr-1">
-                  {annotations.filter(a => a.bookId === activeBook.id).length === 0 ? (
-                    <p className="text-xs text-slate-500 text-center py-8">
-                      No highlights yet. Select any text inside the book to create one.
-                    </p>
-                  ) : (
-                    annotations.filter(a => a.bookId === activeBook.id).map((item) => (
-                      <div key={item.id} className="p-3.5 rounded-2xl bg-white/5 border border-white/10 space-y-1.5">
-                        <div className="flex items-center space-x-2">
-                          <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: item.color }} />
-                          <span className="text-[10px] font-mono text-slate-400">Page {item.page + 1}</span>
-                        </div>
-                        <p className="text-xs text-slate-200 italic">"{item.text}"</p>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Modal: Full E-Reader Display & Typography Controls */}
-          {showSettingsModal && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md">
-              <div className="w-full max-w-md rounded-3xl glass-panel-dark p-6 border border-white/20 shadow-2xl space-y-6 max-h-[85vh] overflow-y-auto">
-                <div className="flex justify-between items-center">
-                  <h3 className="text-base font-bold text-white">Display & Controls</h3>
-                  <button onClick={() => setShowSettingsModal(false)} className="text-slate-400 hover:text-white">
-                    <Icon name="x" className="w-4 h-4" />
-                  </button>
-                </div>
-
-                {/* Color Schemes */}
-                <div>
-                  <span className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2 block">
-                    Dynamic Themes
-                  </span>
-                  <div className="grid grid-cols-5 gap-2">
-                    {[
-                      { id: 'midnight', label: 'Night', color: '#0a0f1d' },
-                      { id: 'trueblack', label: 'OLED', color: '#000000' },
-                      { id: 'sepia', label: 'Sepia', color: '#f6ebd7' },
-                      { id: 'paper', label: 'Paper', color: '#fcfbf9' },
-                      { id: 'softmint', label: 'Mint', color: '#eef7f2' }
-                    ].map(t => (
-                      <button
-                        key={t.id}
-                        onClick={() => setTheme(t.id)}
-                        className={`h-11 rounded-xl flex flex-col items-center justify-center border transition ${ theme === t.id ? 'border-sky-400 ring-2 ring-sky-400/30' : 'border-white/10' }`} style={{ backgroundColor: t.color }} > <span className={`text-[10px] font-medium ${['sepia', 'paper', 'softmint'].includes(t.id) ? 'text-black' : 'text-white'}`}>
-                          {t.label}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Comic Mode Controls */}
-                {activeBook.type === 'comic' && (
-                  <div className="space-y-4 border-t border-white/10 pt-4">
-                    <span className="text-xs font-semibold uppercase tracking-wider text-slate-400 block">
-                      Comic Engine Options
-                    </span>
-                    <div className="grid grid-cols-2 gap-2">
-                      <button
-                        onClick={() => setComicLayout(comicLayout === 'spread' ? 'single' : 'spread')}
-                        className={`py-2 px-3 rounded-xl text-xs font-medium border ${
-                          comicLayout === 'spread' ? 'bg-white/20 border-white/30 text-white' : 'bg-white/5 border-white/10 text-slate-400'
-                        }`}
-                      >
-                        {comicLayout === 'spread' ? 'Double Spread ON' : 'Single Page Mode'}
-                      </button>
-
-                      <button
-                        onClick={() => setMangaRTL(!mangaRTL)}
-                        className={`py-2 px-3 rounded-xl text-xs font-medium border ${
-                          mangaRTL ? 'bg-white/20 border-white/30 text-white' : 'bg-white/5 border-white/10 text-slate-400'
-                        }`}
-                      >
-                        {mangaRTL ? 'Manga (RTL) Active' : 'Standard (LTR)'}
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {/* E-Book Typography Controls */}
-                {activeBook.type === 'ebook' && (
-                  <div className="space-y-4 border-t border-white/10 pt-4">
-                    <span className="text-xs font-semibold uppercase tracking-wider text-slate-400 block">
-                      Typography
-                    </span>
-                    <div className="grid grid-cols-4 gap-2">
-                      {['serif', 'sans', 'dyslexic', 'mono'].map(f => (
-                        <button
-                          key={f}
-                          onClick={() => setFontFamily(f)}
-                          className={`py-2 rounded-xl text-xs capitalize border ${
-                            fontFamily === f ? 'bg-white/20 border-white/30 text-white font-bold' : 'bg-white/5 border-white/10 text-slate-400'
-                          }`}
-                        >
-                          {f}
-                        </button>
-                      ))}
-                    </div>
-
-                    <div className="space-y-3">
-                      <div className="flex justify-between items-center text-xs">
-                        <span className="text-slate-400">Font Size ({fontSize}px)</span>
-                        <div className="flex space-x-2">
-                          <button
-                            onClick={() => setFontSize(Math.max(12, fontSize - 2))}
-                            className="w-7 h-7 rounded-lg bg-white/10 text-white"
-                          >-</button>
-                          <button
-                            onClick={() => setFontSize(Math.min(36, fontSize + 2))}
-                            className="w-7 h-7 rounded-lg bg-white/10 text-white"
-                          >+</button>
-                        </div>
-                      </div>
-
-                      <div className="flex justify-between items-center text-xs">
-                        <span className="text-slate-400">Line Height ({lineHeight})</span>
-                        <div className="flex space-x-2">
-                          <button
-                            onClick={() => setLineHeight(Math.max(1.2, +(lineHeight - 0.2).toFixed(1)))}
-                            className="w-7 h-7 rounded-lg bg-white/10 text-white"
-                          >-</button>
-                          <button
-                            onClick={() => setLineHeight(Math.min(2.6, +(lineHeight + 0.2).toFixed(1)))}
-                            className="w-7 h-7 rounded-lg bg-white/10 text-white"
-                          >+</button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Hardware Display Filters */}
-                <div className="space-y-3 border-t border-white/10 pt-4">
-                  <span className="text-xs font-semibold uppercase tracking-wider text-slate-400 block">
-                    Display Filters
-                  </span>
-                  <div>
-                    <div className="flex justify-between text-xs mb-1">
-                      <span className="text-slate-400">Amber Warmth (Blue Light)</span>
-                      <span className="font-mono text-white">{warmth}%</span>
-                    </div>
-                    <input
-                      type="range"
-                      min="0"
-                      max="100"
-                      value={warmth}
-                      onChange={(e) => setWarmth(parseInt(e.target.value))}
-                      className="w-full accent-amber-400"
-                    />
-                  </div>
-
-                  <div>
-                    <div className="flex justify-between text-xs mb-1">
-                      <span className="text-slate-400">Software Brightness</span>
-                      <span className="font-mono text-white">{brightness}%</span>
-                    </div>
-                    <input
-                      type="range"
-                      min="40"
-                      max="140"
-                      value={brightness}
-                      onChange={(e) => setBrightness(parseInt(e.target.value))}
-                      className="w-full accent-sky-400"
-                    />
-                  </div>
-
-                  <div className="flex items-center justify-between pt-2">
-                    <span className="text-xs text-slate-400">Inverted Night Filter</span>
-                    <button
-                      onClick={() => setNightInvert(!nightInvert)}
-                      className={`w-12 h-6 rounded-full transition-colors relative ${nightInvert ? 'bg-sky-500' : 'bg-white/20'}`}
-                    >
-                      <span className={`w-5 h-5 rounded-full bg-white absolute top-0.5 transition-transform ${nightInvert ? 'left-6.5 translate-x-6' : 'left-0.5'}`} />
-                    </button>
-                  </div>
-                </div>
-
-                <button
-                  onClick={() => setShowSettingsModal(false)}
-                  className="w-full py-2.5 rounded-xl bg-white/15 hover:bg-white/20 text-xs font-semibold text-white"
-                >
-                  Done
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-      );
+        this.toggleModal('modal-stats', true);
+      }
     }
 
-    const root = ReactDOM.createRoot(document.getElementById('root'));
-    root.render(<AuraApp />);
+    // Initialize Aura Reader on Page Load
+    window.addEventListener('DOMContentLoaded', () => {
+      const aura = new AuraApp();
+      window.auraApp = aura;
+      aura.init();
+    });
   </script>
 </body>
 </html>
